@@ -1,0 +1,1681 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><style>:root{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
+<title>Прототип выездного автоэлектрика</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Golos+Text:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: mobile-first. Sticky header (burger < 900px), hash-routed pages built from full-width bands
+   with a 74rem inner column. Phones get a fixed bottom action bar and a bottom-sheet request form. */
+:root{
+  --bg:#EEF1F4; --surface:#FFFFFF; --ink:#121A22; --muted:#55626F; --line:#D5DBE1;
+  --accent:#FFC21A; --accent-ink:#121A22; --plus:#D93A1F; --minus:#1E5A8F; --ok:#2E9E5B;
+  --band:#121A22; --band-2:#1A2530; --band-ink:#EEF2F5; --band-muted:#9FAAB5; --band-line:#2B3845;
+  --lcd:#C7D5B4; --lcd-ink:#18210F;
+  --mark-bg:#FFF0B3; --mark-line:#C99500;
+  --f-display:"Unbounded","Arial Black",system-ui,sans-serif;
+  --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:14px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0D1318; --surface:#151F28; --ink:#E6EBEF; --muted:#97A4B0; --line:#26333F;
+  --minus:#6FA8DC; --plus:#EF5B3F; --ok:#4CC27D;
+  --band:#080C10; --band-2:#111A22; --band-line:#22303C;
+  --mark-bg:#4A3A00; --mark-line:#FFC21A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D1318; --surface:#151F28; --ink:#E6EBEF; --muted:#97A4B0; --line:#26333F;
+  --minus:#6FA8DC; --plus:#EF5B3F; --ok:#4CC27D;
+  --band:#080C10; --band-2:#111A22; --band-line:#22303C;
+  --mark-bg:#4A3A00; --mark-line:#FFC21A; color-scheme:dark}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;
+  padding-bottom:calc(76px + env(safe-area-inset-bottom,0px));-webkit-tap-highlight-color:transparent}
+@media (min-width:900px){body{padding-bottom:0}}
+.wrap{max-width:74rem;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;line-height:1.12;margin:0;letter-spacing:-.01em}
+h1{font-size:clamp(1.85rem,6.4vw,3.6rem);font-weight:800}
+h2{font-size:clamp(1.4rem,4.2vw,2.2rem);font-weight:700}
+h3{font-size:1.05rem;font-weight:500;line-height:1.25}
+p{margin:0;max-width:65ch}
+a{color:inherit}
+.muted{color:var(--muted)}
+.eyebrow{font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.hl{color:var(--accent)}
+:focus-visible{outline:3px solid var(--minus);outline-offset:2px;border-radius:4px}
+
+/* assumptions (hidden by default now) */
+mark.a{background:transparent;color:inherit}
+body.show-a mark.a{background:var(--mark-bg);color:var(--ink);box-shadow:inset 0 -2px 0 var(--mark-line);padding:0 .15em;border-radius:3px}
+body.show-a mark.a::after{content:"допущение";font:700 .58rem/1 var(--f-body);letter-spacing:.05em;text-transform:uppercase;vertical-align:super;margin-left:.25em;color:var(--mark-line)}
+
+/* ---------- header ---------- */
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--band)}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in srgb,var(--band) 92%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:var(--band-ink);border-bottom:1px solid var(--band-line)}
+.top .wrap{display:flex;align-items:center;gap:12px;min-height:60px}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;font-family:var(--f-display);font-weight:800;font-size:1rem;white-space:nowrap}
+.logo svg{flex:none}
+.logo small{display:block;font:500 .68rem var(--f-body);color:var(--band-muted);letter-spacing:.02em}
+nav.main{display:none;gap:2px;flex:1;justify-content:center}
+nav.main a{text-decoration:none;font-size:.9rem;padding:8px 11px;border-radius:8px;color:var(--band-muted);font-weight:500;white-space:nowrap}
+nav.main a:hover{color:var(--band-ink);background:var(--band-2)}
+nav.main a[aria-current="page"]{color:var(--band-ink);box-shadow:inset 0 -2px 0 var(--accent)}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.status{display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--band-muted);white-space:nowrap}
+.status i{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 var(--ok);animation:pulse 2s infinite}
+.status.off i{background:var(--band-muted);animation:none}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 60%,transparent)}70%{box-shadow:0 0 0 8px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.top-phone{display:none;font-family:var(--f-mono);font-weight:700;text-decoration:none;font-size:1rem}
+.icon-btn{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;border:0;cursor:pointer;background:var(--band-2);color:var(--band-ink)}
+.icon-btn.call{background:var(--accent);color:var(--accent-ink)}
+.burger span{display:block;width:20px;height:2px;background:currentColor;border-radius:2px;position:relative}
+.burger span::before,.burger span::after{content:"";position:absolute;left:0;width:20px;height:2px;background:currentColor;border-radius:2px;transition:transform .2s}
+.burger span::before{top:-6px}.burger span::after{top:6px}
+.burger[aria-expanded="true"] span{background:transparent}
+.burger[aria-expanded="true"] span::before{transform:translateY(6px) rotate(45deg)}
+.burger[aria-expanded="true"] span::after{transform:translateY(-6px) rotate(-45deg)}
+@media (min-width:900px){
+  nav.main{display:flex}.burger,.icon-btn.call{display:none}.top-phone{display:block}
+}
+@media (max-width:420px){.status span{display:none}}
+
+/* mobile menu */
+.menu{position:fixed;inset:0;z-index:40;background:var(--band);color:var(--band-ink);display:flex;flex-direction:column;
+  padding:calc(env(safe-area-inset-top,0px) + 12px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 20px) max(16px,env(safe-area-inset-left,0px));
+  transform:translateY(-100%);transition:transform .28s cubic-bezier(.2,.8,.2,1);visibility:hidden}
+.menu.open{transform:none;visibility:visible}
+.menu-head{display:flex;justify-content:space-between;align-items:center;min-height:48px}
+.menu nav{display:flex;flex-direction:column;margin-top:16px;overflow-y:auto}
+.menu nav a{text-decoration:none;font-family:var(--f-display);font-size:1.3rem;font-weight:700;padding:14px 0;border-bottom:1px solid var(--band-line);display:flex;justify-content:space-between;align-items:center}
+.menu nav a small{font:500 .8rem var(--f-body);color:var(--band-muted)}
+.menu nav a[aria-current="page"]{color:var(--accent)}
+.menu .menu-foot{margin-top:auto;display:flex;flex-direction:column;gap:10px;padding-top:20px}
+.menu .phone-big{font-family:var(--f-mono);font-size:1.5rem;font-weight:700;text-decoration:none}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;font:700 1rem var(--f-body);min-height:52px;padding:0 22px;border-radius:12px;border:0;cursor:pointer;text-decoration:none;white-space:nowrap;transition:transform .12s,filter .15s}
+.btn:active{transform:scale(.97)}
+.btn-main{background:var(--accent);color:var(--accent-ink);box-shadow:0 6px 20px -8px color-mix(in srgb,var(--accent) 80%,transparent)}
+.btn-main:hover{filter:brightness(1.06)}
+.btn-ghost{background:transparent;color:inherit;box-shadow:inset 0 0 0 1.5px color-mix(in srgb,currentColor 45%,transparent)}
+.btn-ghost:hover{box-shadow:inset 0 0 0 1.5px currentColor}
+.btn svg{flex:none}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap}
+@media (max-width:520px){.btn-row .btn{flex:1 1 100%}}
+
+/* ---------- bands ---------- */
+section.band{padding-block:clamp(48px,8vw,96px)}
+section.band.alt{background:var(--surface)}
+section.band.dark{background:var(--band);color:var(--band-ink)}
+section.band.dark .muted,section.band.dark .eyebrow{color:var(--band-muted)}
+.head{display:flex;flex-direction:column;gap:10px;margin-bottom:clamp(24px,4vw,40px);max-width:46rem}
+.stack{display:flex;flex-direction:column;gap:16px}
+.hazard{height:10px;background:repeating-linear-gradient(-45deg,var(--accent) 0 14px,var(--band) 14px 28px)}
+
+/* ---------- hero ---------- */
+.hero{background:var(--band);color:var(--band-ink);position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;background:
+  radial-gradient(60rem 30rem at 85% 10%,color-mix(in srgb,var(--minus) 28%,transparent),transparent 60%),
+  radial-gradient(40rem 24rem at 0% 100%,color-mix(in srgb,var(--plus) 16%,transparent),transparent 60%);pointer-events:none}
+.hero .wrap{position:relative;display:grid;gap:28px;padding-block:clamp(28px,6vw,72px) clamp(32px,6vw,72px);grid-template-columns:minmax(0,1fr)}
+@media (min-width:960px){.hero .wrap{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);align-items:center;gap:48px}}
+.hero .kicker{display:inline-flex;align-items:center;gap:8px;font-size:.8rem;font-weight:600;color:var(--band-muted);background:var(--band-2);border:1px solid var(--band-line);padding:6px 12px;border-radius:999px;width:fit-content}
+.hero .kicker b{color:var(--accent);font-weight:700}
+.hero h1 .hl{display:inline-block;background:var(--accent);color:var(--accent-ink);padding:0 .18em;border-radius:.12em;transform:rotate(-1deg)}
+.hero .lead{font-size:clamp(1rem,2.4vw,1.15rem);color:var(--band-muted)}
+.hero .crumbs{font-size:.85rem;color:var(--band-muted)}
+.hero .crumbs a{text-decoration:none}
+.facts{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-inline:calc(-1*max(16px,env(safe-area-inset-left,0px)));padding-inline:max(16px,env(safe-area-inset-left,0px));scroll-snap-type:x mandatory}
+.facts::-webkit-scrollbar{display:none}
+.facts div{flex:none;scroll-snap-align:start;background:var(--band-2);border:1px solid var(--band-line);border-radius:12px;padding:12px 14px;min-width:9.5rem}
+.facts b{display:block;font-family:var(--f-mono);font-size:1.1rem;color:#fff}
+.facts span{font-size:.78rem;color:var(--band-muted);line-height:1.3;display:block;margin-top:2px}
+@media (min-width:600px){.facts{margin-inline:0;padding-inline:0;overflow:visible}.facts div{flex:1}}
+
+/* multimeter */
+.meter{position:relative;background:linear-gradient(180deg,#1E2A35,#111921);border:1px solid #2E3D4B;border-radius:22px;padding:18px;box-shadow:0 30px 60px -30px #000;max-width:30rem;width:100%;justify-self:center}
+.meter-top{display:flex;justify-content:space-between;align-items:center;font:700 .7rem var(--f-body);letter-spacing:.12em;color:#7F8C98;text-transform:uppercase}
+.lcd{margin-top:12px;background:var(--lcd);color:var(--lcd-ink);border-radius:12px;padding:14px 16px 12px;font-family:var(--f-mono);box-shadow:inset 0 2px 8px rgba(0,0,0,.25)}
+.lcd-row{display:flex;justify-content:space-between;align-items:baseline}
+.lcd .val{font-size:clamp(2.8rem,12vw,4rem);font-weight:700;letter-spacing:.02em;line-height:1}
+.lcd .unit{font-size:1rem;font-weight:700}
+.lcd .bar{display:flex;gap:2px;margin-top:10px;height:10px}
+.lcd .bar i{flex:1;background:rgba(24,33,15,.14);border-radius:1px}
+.lcd .bar i.on{background:var(--lcd-ink)}
+.lcd .state{font-size:.78rem;font-weight:700;margin-top:6px;text-transform:uppercase;letter-spacing:.06em}
+.meter-scale{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px}
+.meter-scale button{font:600 .72rem/1.2 var(--f-body);color:#AEB9C3;background:#17212A;border:1px solid #2A3845;border-radius:10px;padding:8px 4px;cursor:pointer;min-height:48px}
+.meter-scale button b{display:block;font-family:var(--f-mono);color:#fff;font-size:.82rem}
+.meter-scale button[aria-pressed="true"]{border-color:var(--accent);color:#fff}
+.meter-note{font-size:.75rem;color:#7F8C98;margin-top:10px}
+.probes{display:flex;justify-content:space-between;margin-top:14px;align-items:center;gap:10px}
+.probes .jack{display:flex;align-items:center;gap:8px;font:700 .72rem var(--f-mono);color:#7F8C98}
+.probes .jack i{width:18px;height:18px;border-radius:50%;border:3px solid currentColor;display:block}
+.probes .p{color:var(--plus)}.probes .m{color:#6F7E8B}
+.jump-btn{flex:1;max-width:12rem;font:700 .85rem var(--f-body);min-height:44px;border-radius:10px;border:0;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.jump-btn:disabled{opacity:.6;cursor:default}
+
+/* ---------- symptom picker ---------- */
+.picker{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:900px){.picker{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:28px}}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{display:flex;align-items:center;gap:14px;text-align:left;font:600 1rem var(--f-body);color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:var(--r);padding:14px 16px;min-height:60px;cursor:pointer;transition:border-color .15s,transform .12s}
+.band.alt .opt{background:var(--bg)}
+.opt:active{transform:scale(.99)}
+.opt .ico{flex:none;width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:var(--bg);font:700 .8rem var(--f-mono);color:var(--muted)}
+.band.alt .opt .ico{background:var(--surface)}
+.opt[aria-pressed="true"]{border-color:var(--ink)}
+.opt[aria-pressed="true"] .ico{background:var(--accent);color:var(--accent-ink)}
+.verdict{background:var(--band);color:var(--band-ink);border-radius:20px;padding:clamp(20px,4vw,32px);display:flex;flex-direction:column;gap:14px;min-width:0}
+.verdict .tag{font:700 .72rem var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+.verdict h3{font-family:var(--f-display);font-size:clamp(1.2rem,3.4vw,1.6rem);font-weight:700}
+.verdict p{color:var(--band-muted)}
+.verdict ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.verdict li{padding-left:22px;position:relative}
+.verdict li::before{content:"";position:absolute;left:0;top:.5em;width:10px;height:10px;border-radius:2px;background:var(--accent)}
+.verdict .btn-ghost{color:var(--band-ink)}
+
+/* ---------- rails (swipe on phones, grid on desktop) ---------- */
+.rail{display:grid;gap:12px;grid-auto-flow:column;grid-auto-columns:min(82%,20rem);overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;
+  margin-inline:calc(-1*max(16px,env(safe-area-inset-left,0px)));padding-inline:max(16px,env(safe-area-inset-left,0px));scroll-padding-inline:max(16px,env(safe-area-inset-left,0px));padding-bottom:4px}
+.rail::-webkit-scrollbar{display:none}
+.rail > *{scroll-snap-align:start;min-width:0}
+@media (min-width:760px){.rail{grid-auto-flow:row;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;margin-inline:0;padding-inline:0}}
+@media (min-width:1080px){.rail.r3{grid-template-columns:repeat(3,minmax(0,1fr))}.rail.r4{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.rail-hint{display:flex;gap:6px;justify-content:center;margin-top:12px}
+.rail-hint i{width:6px;height:6px;border-radius:3px;background:var(--line);transition:width .2s,background .2s}
+.rail-hint i.on{width:18px;background:var(--ink)}
+@media (min-width:760px){.rail-hint{display:none}}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;display:flex;flex-direction:column;gap:10px;position:relative;overflow:hidden}
+.band.alt .card{background:var(--bg)}
+.band.dark .card{background:var(--band-2);border-color:var(--band-line)}
+.card .v{display:inline-flex;align-self:flex-start;font:700 .78rem var(--f-mono);padding:4px 8px;border-radius:6px;background:var(--bg);color:var(--ink)}
+.band.alt .card .v{background:var(--surface)}
+.card span.v.v24{background:var(--plus);color:#fff}
+.card span.v.v12{background:var(--minus);color:#fff}
+.card a.more{margin-top:auto;padding-top:6px;font-weight:700;font-size:.92rem;text-decoration:none;color:var(--minus);display:inline-flex;align-items:center;gap:6px;min-height:32px}
+.band.dark .card a.more{color:var(--accent)}
+.card .big{font-family:var(--f-display);font-size:2.4rem;font-weight:800;line-height:1;color:var(--line)}
+.band.dark .card .big{color:var(--band-line)}
+
+/* checks */
+.checks{list-style:none;padding:0;margin:0;display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:760px){.checks.c2{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.checks li{padding-left:32px;position:relative}
+.checks li::before{content:"";position:absolute;left:0;top:.15em;width:20px;height:20px;border-radius:6px;background:var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5 10.5l3 3 7-7' fill='none' stroke='%23121A22' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% no-repeat}
+
+.split{display:grid;gap:32px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:900px){.split{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;align-items:start}}
+.note{border-left:3px solid var(--accent);padding:4px 0 4px 14px;color:var(--muted);font-size:.95rem;max-width:65ch}
+
+/* equipment illustration */
+.kit{background:var(--band);border-radius:20px;padding:20px;color:var(--band-ink);display:flex;flex-direction:column;gap:14px}
+.kit svg{width:100%;height:auto;display:block}
+.kit .specs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.kit .specs div{background:var(--band-2);border:1px solid var(--band-line);border-radius:10px;padding:10px}
+.kit .specs b{font-family:var(--f-mono);display:block;font-size:clamp(.78rem,3.2vw,.95rem);white-space:nowrap}
+.kit .specs span{font-size:.72rem;color:var(--band-muted)}
+
+/* steps (a real sequence) */
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:12px;grid-template-columns:minmax(0,1fr);counter-reset:s}
+@media (min-width:760px){.steps{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (min-width:1080px){.steps{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.steps li{counter-increment:s;display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.band.alt .steps li{background:var(--bg)}
+.steps li::before{content:counter(s);grid-row:span 2;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font:700 .95rem var(--f-mono);background:var(--ink);color:var(--surface)}
+.steps li p{grid-column:2}
+
+/* brands */
+.brands{display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:760px){.brands{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chips span{font:600 .85rem var(--f-body);padding:6px 10px;border-radius:8px;border:1px solid var(--band-line);background:var(--band)}
+
+/* ops list (scanner) */
+.ops{display:grid;gap:8px;grid-template-columns:minmax(0,1fr)}
+.ops div{display:flex;gap:12px;align-items:baseline;padding:12px 0;border-bottom:1px dashed var(--band-line)}
+.ops b{font-family:var(--f-mono);color:var(--accent);min-width:6.5em;font-size:.85rem}
+.ops span{color:var(--band-muted)}
+
+/* price */
+.rule{background:var(--accent);color:var(--accent-ink);border-radius:20px;padding:clamp(20px,4vw,32px);display:flex;flex-direction:column;gap:10px}
+.rule p{font-size:clamp(1.05rem,2.6vw,1.3rem);font-weight:600;max-width:52ch}
+.rule .eyebrow{color:var(--accent-ink);opacity:.7}
+.prices{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.prices .row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 16px;padding:16px 18px;border-bottom:1px solid var(--line)}
+.prices .row:last-child{border-bottom:0}
+.prices .row b{font-weight:600}
+.prices .row .p{font-family:var(--f-mono);font-weight:700;white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
+.prices .row small{grid-column:1/-1;color:var(--muted);font-size:.88rem}
+.prices .grp{padding:12px 18px;background:var(--bg);font:700 .72rem var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.terms{display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:640px){.terms{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (min-width:1080px){.terms{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+/* faq */
+.faq details{border-bottom:1px solid var(--line)}
+.faq summary{cursor:pointer;font-weight:700;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:18px 0;min-height:56px}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"";flex:none;width:28px;height:28px;border-radius:50%;background:var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'%3E%3Cpath d='M9 14h10M14 9v10' stroke='%2355626F' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") center/100% no-repeat;transition:transform .2s}
+.band.alt .faq summary::after{background-color:var(--bg)}
+.faq details[open] summary::after{transform:rotate(45deg)}
+.faq details p{padding-bottom:18px;color:var(--muted)}
+
+/* geo */
+.geo-map{background:var(--band);border-radius:20px;padding:16px;color:var(--band-ink)}
+.geo-map svg{width:100%;height:auto;display:block}
+.zones{display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:760px){.zones{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.zone{display:inline-flex;align-self:flex-start;font:700 .72rem var(--f-body);padding:4px 10px;border-radius:999px;letter-spacing:.04em;text-transform:uppercase}
+.z1{background:var(--accent);color:var(--accent-ink)}
+.z2{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.districts{display:flex;flex-wrap:wrap;gap:6px}
+.districts span{font-size:.85rem;padding:5px 10px;border-radius:8px;background:var(--bg);border:1px solid var(--line)}
+
+/* forms */
+form.req{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:20px;padding:clamp(18px,4vw,28px);display:grid;gap:14px}
+.band.alt form.req{background:var(--bg)}
+form.req h3{font-family:var(--f-display);font-size:1.25rem;font-weight:700}
+form.req label{display:flex;flex-direction:column;gap:6px;font-size:.85rem;font-weight:700}
+form.req input,form.req select,form.req textarea{font:400 16px var(--f-body);padding:0 14px;min-height:52px;border:1.5px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);width:100%;appearance:none;-webkit-appearance:none}
+.band.alt form.req input,.band.alt form.req select,.band.alt form.req textarea{background:var(--surface)}
+form.req textarea{padding:12px 14px;min-height:96px;resize:vertical}
+form.req select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%2355626F' stroke-width='2'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;background-size:16px;padding-right:40px}
+form.req input:focus,form.req select:focus,form.req textarea:focus{outline:none;border-color:var(--minus)}
+form.req input[aria-invalid="true"]{border-color:var(--plus)}
+form.req .err{color:var(--plus);font-size:.85rem;font-weight:600}
+form.req .fine{font-size:.78rem;color:var(--muted);font-weight:400}
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.seg button{font:600 .85rem/1.2 var(--f-body);min-height:52px;border-radius:12px;border:1.5px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;padding:6px}
+.seg button[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--surface)}
+.done{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.done .tick{width:52px;height:52px;border-radius:50%;background:var(--ok);display:grid;place-items:center}
+
+/* ---------- bottom action bar + sheet ---------- */
+.actionbar{position:fixed;left:0;right:0;bottom:0;z-index:25;background:color-mix(in srgb,var(--surface) 94%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--line);
+  padding:10px max(12px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));display:grid;grid-template-columns:1.4fr 52px 1fr;gap:8px}
+.actionbar .btn{min-height:52px;padding:0 12px;font-size:.95rem}
+.actionbar .msg{background:var(--bg);color:var(--ink);padding:0;border:1px solid var(--line)}
+@media (min-width:900px){.actionbar{display:none}}
+
+.sheet-bg{position:fixed;inset:0;z-index:45;background:rgba(5,9,12,.55);opacity:0;visibility:hidden;transition:opacity .2s}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:46;background:var(--surface);border-radius:22px 22px 0 0;max-height:92dvh;overflow-y:auto;
+  padding:8px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));transform:translateY(105%);transition:transform .3s cubic-bezier(.2,.8,.2,1);visibility:hidden}
+.sheet .grab{width:44px;height:5px;border-radius:3px;background:var(--line);margin:4px auto 12px}
+.sheet form.req{border:0;padding:0;background:transparent}
+.sheet-open .sheet-bg{opacity:1;visibility:visible}
+.sheet-open .sheet{transform:none;visibility:visible}
+@media (min-width:900px){.sheet{left:50%;right:auto;bottom:50%;width:30rem;border-radius:22px;transform:translate(-50%,60%) scale(.96);opacity:0;transition:transform .25s,opacity .2s;padding:24px}
+  .sheet-open .sheet{transform:translate(-50%,50%);opacity:1}.sheet .grab{display:none}}
+.sheet-close{position:absolute;right:max(12px,env(safe-area-inset-right,0px));top:12px;width:44px;height:44px;border-radius:12px;border:0;background:var(--bg);color:var(--ink);cursor:pointer;font-size:1.3rem}
+
+/* pages */
+main > article[hidden]{display:none!important}
+
+/* footer */
+footer.foot{background:var(--band);color:var(--band-muted);font-size:.92rem}
+footer.foot .grid{padding-block:40px 28px;display:grid;gap:28px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:760px){footer.foot .grid{grid-template-columns:1.4fr 1fr 1fr}}
+footer.foot b{color:var(--band-ink);display:block;margin-bottom:8px}
+footer.foot a{text-decoration:none;display:block;padding:6px 0}
+footer.foot .phone{font-family:var(--f-mono);font-size:1.3rem;color:var(--band-ink);font-weight:700}
+footer.foot .bottom{border-top:1px solid var(--band-line);padding-block:16px;display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center;font-size:.8rem}
+.toggle-a{font:600 .8rem var(--f-body);border:1px dashed var(--mark-line);background:transparent;color:var(--band-ink);padding:8px 12px;border-radius:8px;cursor:pointer;min-height:40px}
+.toggle-a[aria-pressed="true"]{background:var(--mark-bg);color:var(--ink)}
+
+/* ---------- icons ---------- */
+.i{width:24px;height:24px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ic{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;flex:none;background:color-mix(in srgb,var(--accent) 28%,transparent);color:var(--ink)}
+.band.dark .ic,.on-dark .ic{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
+.ch{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.pill{font:700 .78rem var(--f-body);padding:5px 10px;border-radius:999px;background:var(--bg);border:1px solid var(--line);color:var(--ink);white-space:nowrap}
+.band.alt .pill{background:var(--surface)}
+.band.dark .pill{background:transparent;border-color:var(--band-line);color:var(--band-ink)}
+.facts .i{color:var(--accent);display:block;margin-bottom:6px}
+.kicker .i{width:16px;height:16px;color:var(--accent)}
+.opt .ico .i{width:22px;height:22px}
+.opt .ico{color:var(--ink)}
+.prices .grp{display:flex;align-items:center;gap:8px}
+.prices .grp .i{width:18px;height:18px}
+.kit .specs .i{color:var(--accent);width:20px;height:20px;display:block;margin-bottom:4px}
+.ilist{list-style:none;margin:0;padding:0;display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:560px){.ilist{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.ilist li{display:flex;align-items:center;gap:12px;min-width:0}
+.ilist b{display:block;font-weight:700;line-height:1.3}
+.ilist small{display:block;color:var(--muted);font-size:.88rem;line-height:1.35}
+.jump-btn .i{width:18px;height:18px}
+
+/* ---------- illustrations ---------- */
+.shot{position:relative;background:linear-gradient(180deg,#1B2631,#0C1217);border:1px solid var(--band-line);border-radius:22px;padding:12px;max-width:34rem;width:100%;justify-self:center;box-shadow:0 30px 60px -30px #000;margin:0}
+.shot svg{display:block;width:100%;height:auto}
+.shot .legend{display:flex;flex-wrap:wrap;gap:6px 16px;padding:10px 6px 2px;font-size:.82rem;color:var(--band-muted)}
+.shot .legend span{display:inline-flex;align-items:center;gap:6px}
+.shot .legend i{width:10px;height:10px;border-radius:3px;display:block}
+body.show-a .shot::after,body.show-a .kit::after{content:"иллюстрация · заменить на фото";position:absolute;left:12px;top:12px;font:700 .62rem var(--f-body);letter-spacing:.05em;text-transform:uppercase;background:var(--mark-bg);color:var(--ink);padding:4px 8px;border-radius:6px}
+.kit{position:relative}
+
+/* multimeter */
+.dmm{max-width:21rem;width:100%;justify-self:center;display:flex;flex-direction:column}
+.dmm-body{background:linear-gradient(160deg,#FFD65C,#F2B200 45%,#C28A00);border-radius:32px;padding:12px;box-shadow:0 34px 60px -28px #000,inset 0 2px 0 rgba(255,255,255,.5),inset 0 -8px 14px rgba(0,0,0,.28)}
+.dmm-face{background:linear-gradient(180deg,#2C353E,#161B21);border-radius:21px;padding:14px 14px 0;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),inset 0 0 0 1px #0B0E11}
+.dmm-cap{display:flex;justify-content:space-between;align-items:center;font:700 .66rem var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:#8793A0;margin-bottom:10px}
+.dmm-cap i{width:8px;height:8px;border-radius:50%;background:#4CC27D;box-shadow:0 0 8px #4CC27D}
+.dmm .lcd{margin-top:0;border:3px solid #0B0E11;border-radius:10px}
+.dmm .lcd-mode{font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.dmm-dial{display:block;width:100%;height:auto;margin-top:6px}
+.dmm-leads{display:block;width:calc(100% - 52px);height:auto;margin:-13px 26px 0;position:relative}
+.dmm-ctl{margin-top:6px}
+.dmm .meter-note{margin:0 0 8px;color:var(--band-muted);font-size:.82rem}
+.dmm .jump-btn{max-width:none;width:100%;display:flex;gap:8px;align-items:center;justify-content:center;margin-top:8px;min-height:48px}
+
+/* ---------- tabs ---------- */
+.tabs{display:flex;flex-direction:column;gap:14px}
+.tablist{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;background:var(--bg);padding:6px;border-radius:18px;border:1px solid var(--line)}
+.tablist button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font:700 .85rem var(--f-body);min-height:64px;border:0;border-radius:12px;background:transparent;color:var(--muted);cursor:pointer;padding:8px 4px}
+.tablist button[aria-selected="true"]{background:var(--ink);color:var(--surface)}
+@media (min-width:640px){.tablist button{flex-direction:row;gap:10px;font-size:1rem}}
+.tabpanel{display:grid;gap:20px;grid-template-columns:minmax(0,1fr);background:var(--bg);border:1px solid var(--line);border-radius:22px;padding:clamp(18px,4vw,32px);align-items:center}
+@media (min-width:900px){.tabpanel{grid-template-columns:auto minmax(0,1fr) auto;gap:40px}}
+.volt{display:flex;align-items:baseline;gap:8px;font-family:var(--f-display)}
+.volt b{font-size:clamp(4.2rem,16vw,7.5rem);font-weight:800;line-height:.9;background:linear-gradient(180deg,var(--accent),#C98A00);-webkit-background-clip:text;background-clip:text;color:transparent}
+.volt span{font:700 1rem var(--f-body);color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.tp-body{display:flex;flex-direction:column;gap:12px;min-width:0}
+.tp-cta{display:flex;flex-direction:column;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px;min-width:13rem}
+.tp-cta b{font-size:1.5rem}
+.tp-cta span{font-size:.85rem;color:var(--muted);margin-bottom:8px}
+
+/* ---------- comparison ---------- */
+.cmp{display:grid;gap:8px}
+.cmp-h,.cmp-r{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.cmp-h span:first-child{display:none}
+.cmp-h span{font:700 .78rem var(--f-body);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:0 14px}
+.cmp-h .us{color:var(--ink)}
+.cmp-r b{grid-column:1/-1;font-weight:700;margin-top:10px}
+.cmp-r span{display:flex;gap:8px;align-items:flex-start;padding:14px;border-radius:14px;background:var(--bg);border:1px solid var(--line);font-size:.95rem;line-height:1.4;min-width:0}
+.cmp-r .yes{background:color-mix(in srgb,var(--accent) 22%,var(--surface));border-color:var(--accent);font-weight:600}
+.cmp-r .i{width:20px;height:20px;margin-top:1px;stroke-width:2.4}
+.cmp-r .no .i{color:var(--plus)}
+.cmp-r .yes .i{color:var(--ok)}
+@media (min-width:800px){.cmp-h,.cmp-r{grid-template-columns:minmax(0,.6fr) minmax(0,1fr) minmax(0,1fr)}.cmp-h span:first-child{display:block}.cmp-r b{grid-column:auto;margin:0;align-self:center}}
+
+/* ---------- timeline ---------- */
+.tl{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr)}
+.tl li{position:relative;padding:0 0 26px 62px;display:flex;flex-direction:column;gap:4px}
+.tl li::before{content:"";position:absolute;left:22px;top:50px;bottom:4px;width:2px;background:var(--band-line)}
+.tl li:last-child{padding-bottom:0}
+.tl li:last-child::before{display:none}
+.tl .ic{position:absolute;left:0;top:0}
+.tl .t{font:700 .78rem var(--f-mono);color:var(--accent)}
+@media (min-width:900px){.tl{grid-template-columns:repeat(5,minmax(0,1fr));gap:24px}.tl li{padding:62px 0 0}.tl li::before{left:56px;right:-14px;top:22px;bottom:auto;width:auto;height:2px}}
+.after{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;background:var(--band-2);border:1px solid var(--band-line);border-radius:20px;padding:clamp(18px,4vw,28px);margin-top:32px}
+.after > div{flex:1 1 20rem;min-width:0;display:flex;flex-direction:column;gap:8px}
+.trust{list-style:none;display:flex;flex-wrap:wrap;gap:12px 28px;padding:0;margin:24px 0 0}
+.trust li{display:flex;align-items:center;gap:8px;font-weight:600}
+.trust .i{color:var(--accent)}
+
+/* ---------- chart ---------- */
+.chart{margin:0;background:var(--band);color:var(--band-ink);border-radius:22px;padding:clamp(16px,3.500vw,24px);display:flex;flex-direction:column;gap:12px;min-width:0}
+.chart figcaption b{display:block;font-weight:700}
+.chart figcaption span{font-size:.85rem;color:var(--band-muted)}
+.chart .readout{font:700 .9rem var(--f-mono);min-height:1.5em}
+.plot{position:relative;height:210px;margin-left:34px}
+.plot .gl{position:absolute;left:0;right:0;border-top:1px solid var(--band-line)}
+.plot .gl span{position:absolute;left:-34px;top:-.65em;font:500 .7rem var(--f-mono);color:var(--band-muted);width:28px;text-align:right}
+.bars{position:absolute;inset:0;display:flex;align-items:flex-end;gap:clamp(3px,1vw,8px)}
+.bar{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;background:none;border:0;padding:0;cursor:pointer;position:relative;min-width:0}
+.bar i{display:block;width:100%;max-width:30px;height:var(--h);background:#6B7E91;border-radius:4px 4px 0 0}
+.bar.hi i{background:var(--accent)}
+.bar em{position:absolute;bottom:calc(var(--h) + 4px);font:700 .72rem var(--f-mono);font-style:normal;color:var(--band-ink)}
+.bars .bar i{transition:opacity .15s}
+.bars:has(.on) .bar:not(.on) i{opacity:.5}
+.xl{display:flex;gap:clamp(3px,1vw,8px);margin-left:34px}
+.xl span{flex:1;text-align:center;font:500 .68rem var(--f-body);color:var(--band-muted);min-width:0}
+.chart details summary{cursor:pointer;font-size:.85rem;color:var(--band-muted);min-height:32px;display:flex;align-items:center}
+.chart table{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:4px}
+.chart td{padding:5px 0;border-bottom:1px solid var(--band-line)}
+.chart td:last-child{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.chart .src{font-size:.75rem;color:var(--band-muted)}
+.ilist.one{grid-template-columns:minmax(0,1fr)}
+
+/* ---------- dashboard lamps ---------- */
+.cluster{background:radial-gradient(120% 90% at 50% 0%,#1D2A36,#0A0F14);border:1px solid var(--band-line);border-radius:24px;padding:clamp(18px,4vw,28px);display:flex;flex-wrap:wrap;justify-content:center;align-content:center;gap:18px 0}
+.lamp{display:flex;flex-direction:column;align-items:center;gap:8px;background:none;border:0;color:#AEB9C3;font:600 .8rem/1.2 var(--f-body);cursor:pointer;padding:4px;text-align:center;flex:0 0 33.333%;min-width:0}
+.lamp span{width:68px;height:68px;border-radius:50%;display:grid;place-items:center;background:#06090C;border:2px solid #2B3845;transition:box-shadow .2s,border-color .2s}
+.lamp .i{width:34px;height:34px}
+.lamp.red .i{color:#FF4D3A}
+.lamp.amb .i{color:#FFB020}
+.lamp.off .i{color:#56626E}
+.lamp[aria-pressed="true"]{color:#fff}
+.lamp.red[aria-pressed="true"] span{border-color:#FF4D3A;box-shadow:0 0 24px rgba(255,77,58,.55)}
+.lamp.amb[aria-pressed="true"] span{border-color:#FFB020;box-shadow:0 0 24px rgba(255,176,32,.5)}
+.lamp.off[aria-pressed="true"] span{border-color:#AEB9C3}
+@media (min-width:520px) and (max-width:899px){.lamp{flex-basis:20%}}
+.verdict.light{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+.verdict.light p{color:var(--muted)}
+.verdict.light .tag{color:var(--minus)}
+.verdict.light .btn-ghost{color:var(--ink)}
+
+/* ---------- bento ---------- */
+.bento{display:grid;gap:12px;grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (min-width:900px){.bento{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.bt{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.bt b{font-weight:700;line-height:1.25}
+.bt small{color:var(--muted);font-size:.88rem;line-height:1.4}
+.bt.wide{grid-column:span 2}
+.bt.feat{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.bt.feat small{color:var(--accent-ink);opacity:.78}
+.bt.feat .ic{background:rgba(18,26,34,.14);color:var(--accent-ink)}
+.bt.inv{background:var(--band);border-color:var(--band);color:var(--band-ink)}
+.bt.inv small{color:var(--band-muted)}
+.bt.inv .ic{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
+.bt.wide b{font-family:var(--f-display);font-size:1.1rem}
+.bt .btn{margin-top:auto;align-self:flex-start;min-height:46px}
+
+/* ---------- hotspots ---------- */
+.hot{position:relative}
+.hot button{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;border:2px solid #121A22;background:var(--accent);color:#121A22;font:700 1rem/1 var(--f-mono);cursor:pointer;display:grid;place-items:center;padding:0;animation:hp 2.200s infinite}
+.hot button::after{content:"";position:absolute;inset:-8px}
+.hot button[aria-pressed="true"]{background:#fff;animation:none;box-shadow:0 0 0 5px rgba(255,194,26,.55)}
+@keyframes hp{0%{box-shadow:0 0 0 0 rgba(255,194,26,.6)}70%{box-shadow:0 0 0 11px rgba(255,194,26,0)}100%{box-shadow:0 0 0 0 rgba(255,194,26,0)}}
+.hot-cap{padding:12px 6px 4px;display:flex;flex-direction:column;gap:2px;min-height:5.2em}
+.hot-cap b{color:var(--band-ink)}
+.hot-cap span{color:var(--band-muted);font-size:.9rem;line-height:1.4}
+
+/* ---------- marquee ---------- */
+.marquee{background:var(--accent);color:var(--accent-ink);overflow:hidden;padding-block:12px}
+.mq{display:flex;width:max-content;font:700 .95rem var(--f-display);white-space:nowrap;animation:mq 45s linear infinite}
+.mq span{padding-inline:18px;display:inline-flex;align-items:center;gap:36px}
+.mq span::after{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.35}
+@keyframes mq{to{transform:translateX(-50%)}}
+
+/* ---------- checklist ---------- */
+.todo{display:flex;flex-direction:column;gap:8px}
+.todo-bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.todo-bar i{display:block;height:100%;width:0;background:var(--ok);border-radius:4px;transition:width .25s}
+.todo-st{font:700 .85rem var(--f-body);color:var(--muted);margin-bottom:4px}
+.todo label{display:flex;gap:12px;align-items:center;padding:14px;border:1.500px solid var(--line);border-radius:14px;background:var(--surface);cursor:pointer;font-weight:600;min-height:56px}
+.todo input{width:22px;height:22px;flex:none;accent-color:var(--ok)}
+.todo label.on{border-color:var(--ok)}
+
+/* ---------- price filter ---------- */
+.chips-f{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-inline:calc(-1*max(16px,env(safe-area-inset-left,0px)));padding-inline:max(16px,env(safe-area-inset-left,0px))}
+.chips-f::-webkit-scrollbar{display:none}
+.chips-f button{flex:none;font:700 .9rem var(--f-body);min-height:44px;padding:0 16px;border-radius:999px;border:1.500px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.chips-f button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+@media (min-width:600px){.chips-f{margin-inline:0;padding-inline:0;flex-wrap:wrap}}
+
+/* ---------- scanner demo ---------- */
+.scan{position:relative}
+.scan button{position:absolute;border:0;background:transparent;border-radius:999px;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;transition:background .12s}
+.scan button::after{content:"";position:absolute;inset:-13px -4px}
+.scan #scanPad::after{inset:-12px}
+#boost button{border-radius:10px}
+#boost #bBtnP{border-radius:50%}
+.scan button:hover{background:rgba(255,255,255,.12)}
+.scan button:active{background:rgba(255,255,255,.32)}
+.scan button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.scan-cap{padding:10px 6px 2px;font-size:.85rem;line-height:1.4;color:var(--band-muted)}
+
+/* entrance */
+@media (prefers-reduced-motion:no-preference){
+  .rise{animation:rise .6s cubic-bezier(.2,.8,.2,1) both}
+  .rise.d1{animation-delay:.06s}.rise.d2{animation-delay:.12s}.rise.d3{animation-delay:.18s}.rise.d4{animation-delay:.24s}
+}
+@keyframes rise{from{transform:translateY(14px)}to{transform:none}}
+</style>
+
+<svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+<symbol id="i-car" viewBox="0 0 24 24"><path d="M4.5 12.5l1.4-4A2.2 2.2 0 0 1 8 7h8a2.2 2.2 0 0 1 2.1 1.5l1.4 4"/><rect x="3" y="12.5" width="18" height="5" rx="1.6"/><path d="M6 17.5V19M18 17.5V19M6.3 15h1.7M16 15h1.7"/></symbol>
+<symbol id="i-truck" viewBox="0 0 24 24"><path d="M4.5 16.5h-2v-10H13v10H8.5"/><path d="M13 10h4.2l3.3 3.3v3.2H19M15 16.5h-2"/><circle cx="6.5" cy="16.5" r="2"/><circle cx="17" cy="16.5" r="2"/></symbol>
+<symbol id="i-digger" viewBox="0 0 24 24"><rect x="2.5" y="17" width="11" height="3.5" rx="1.75"/><path d="M4.5 17v-5.5H10l1.5 2.5v3"/><path d="M10 11.5l5-6.5 4.5 5.5"/><path d="M19.5 10.5l1.3 4.5h-4.3l1.5-3.5"/></symbol>
+<symbol id="i-battery" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="1.6"/><path d="M6.5 7V5h3v2M14.5 7V5h3v2"/><path d="M6.5 13h3M8 11.5v3M14.5 13h3"/></symbol>
+<symbol id="i-battery-low" viewBox="0 0 24 24"><rect x="2.5" y="7.5" width="16.5" height="9" rx="1.8"/><path d="M21.5 10.5v3"/><path d="M6 10.5v3" stroke-width="2.6"/></symbol>
+<symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5"/><path d="M6.5 8h11v3a5.5 5.5 0 0 1-11 0z"/><path d="M12 16.5V21"/></symbol>
+<symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2.5L5 13.5h6l-1 8 8-11h-6z"/></symbol>
+<symbol id="i-diag" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="12" rx="1.6"/><path d="M6 11h3l1.5-3 2.5 5.5 1.5-2.5H18"/><path d="M9 20h6M12 16.5V20"/></symbol>
+<symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+<symbol id="i-fuel" viewBox="0 0 24 24"><path d="M4 20V5.5A1.5 1.5 0 0 1 5.5 4h6A1.5 1.5 0 0 1 13 5.5V20"/><path d="M3 20h11"/><path d="M6.5 7.5h4V11h-4z"/><path d="M13 10h1.5a1.5 1.5 0 0 1 1.5 1.5v4a1.5 1.5 0 0 0 3 0V8.5L16.5 6"/></symbol>
+<symbol id="i-wheel" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><path d="M12 3v5.8M12 15.2V21M3 12h5.8M15.2 12H21"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-10.5a6.5 6.5 0 0 1 13 0C18.500 15.400 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.3"/></symbol>
+<symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h6"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7.5 3v5.500c0 4.500-3 8-7.500 9.500-4.500-1.500-7.500-5-7.500-9.500V6z"/><path d="M8.800 12l2.300 2.300 4.200-4.600"/></symbol>
+<symbol id="i-card" viewBox="0 0 24 24"><rect x="2.500" y="5.500" width="19" height="13" rx="2"/><path d="M2.500 10h19M6 14.500h4"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.500A8.500 8.500 0 0 1 9.500 4a8.500 8.500 0 1 0 10.500 10.500z"/></symbol>
+<symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 4.500A1.500 1.500 0 0 1 4.500 3H12l8.600 8.600a1.500 1.500 0 0 1 0 2.100l-6.900 6.900a1.500 1.500 0 0 1-2.100 0L3 12z"/><circle cx="8" cy="8" r="1.500"/></symbol>
+<symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.500" cy="15.500" r="4"/><path d="M10.500 12.500L20 3M16.500 6.500l3 3M13.500 9.500l2 2"/></symbol>
+<symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.300 6.800a8 8 0 1 0 11.400 0"/></symbol>
+<symbol id="i-engine" viewBox="0 0 24 24"><path d="M7.500 8.500h8l1.800 2.300h2.200v6.400h-2.200l-1.800 2.300H10l-2.500-2.500h-2v-6h2z"/><path d="M9.500 5.500h5M12 5.500v3M5.500 13.500H3M3 11.500v4M19.500 14H21"/></symbol>
+<symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4.500 17a8.500 8.500 0 1 1 15 0"/><path d="M12 14l4-5"/><circle cx="12" cy="14" r="1.200"/></symbol>
+<symbol id="i-pedal" viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="14" rx="2" transform="rotate(10 12 10)"/><path d="M9.500 7.500l5 .9M9 11l5 .9"/><path d="M5 21h14M12 17.500V21"/></symbol>
+<symbol id="i-fan" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.800"/><path d="M12 10.200C12 6 10 3.500 7.500 4.500 5.800 5.300 7 8.500 10.400 11M13.800 12c4.200 0 6.700-2 5.700-4.500-.8-1.700-4-.5-6.500 2.900M12 13.800c0 4.200 2 6.700 4.500 5.700 1.700-.8.5-4-2.900-6.500M10.200 12C6 12 3.500 14 4.500 16.500c.8 1.700 4 .5 6.500-2.900"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="6.500"/><path d="M12 2.500v3M12 18.500v3M2.500 12h3M18.500 12h3M5.300 5.300l2.100 2.100M16.600 16.600l2.100 2.100M5.300 18.700l2.100-2.100M16.600 7.400l2.100-2.100"/></symbol>
+<symbol id="i-chip" viewBox="0 0 24 24"><rect x="6.500" y="6.500" width="11" height="11" rx="1.500"/><rect x="9.800" y="9.800" width="4.400" height="4.400"/><path d="M9 3v3.500M12 3v3.500M15 3v3.500M9 17.500V21M12 17.500V21M15 17.500V21M3 9h3.500M3 12h3.500M3 15h3.500M17.500 9H21M17.500 12H21M17.500 15H21"/></symbol>
+<symbol id="i-cable" viewBox="0 0 24 24"><path d="M4.500 8V5M7.500 8V5"/><rect x="3" y="8" width="6" height="5" rx="1"/><path d="M6 13v2a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4v-4"/><rect x="15" y="6" width="6" height="5" rx="1"/><path d="M16.500 6V3.500M19.500 6V3.500"/></symbol>
+<symbol id="i-code" viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.500 5l-3 14"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.500l9.500 16.500h-19z"/><path d="M12 10v4.500M12 17.200v.1"/></symbol>
+<symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 3s6 6.200 6 11a6 6 0 0 1-12 0c0-4.800 6-11 6-11z"/></symbol>
+<symbol id="i-filter" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="5"/><path d="M8 7v10M12 7v10M16 7v10"/></symbol>
+<symbol id="i-headset" viewBox="0 0 24 24"><path d="M4.500 14v-2a7.500 7.500 0 0 1 15 0v2"/><rect x="2.500" y="13" width="4" height="6" rx="1.500"/><rect x="17.500" y="13" width="4" height="6" rx="1.500"/><path d="M19.500 19c0 1.500-2 2.500-5 2.500"/></symbol>
+<symbol id="i-building" viewBox="0 0 24 24"><path d="M4 21V5.500A1.500 1.500 0 0 1 5.500 4h7A1.500 1.500 0 0 1 14 5.500V21M14 10h4.500a1.500 1.500 0 0 1 1.500 1.500V21M2.500 21h19"/><path d="M7.500 8h3M7.500 12h3M7.500 16h3"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.500"/><path d="M5 20a7 7 0 0 1 14 0"/></symbol>
+<symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.500" y="5" width="17" height="15" rx="2"/><path d="M3.500 10h17M8 3v4M16 3v4"/></symbol>
+<symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5.500h16V16H10l-4.500 4v-4H4z"/><path d="M8 9.500h8M8 12.500h5"/></symbol>
+<symbol id="i-snow" viewBox="0 0 24 24"><path d="M12 2.500v19M3.800 7.200l16.400 9.600M20.200 7.200L3.800 16.800"/><path d="M9.500 4.500L12 7l2.500-2.500M9.500 19.500L12 17l2.500 2.500"/></symbol>
+<symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.920v3a2 2 0 0 1-2.180 2 19.790 19.790 0 0 1-8.630-3.070 19.500 19.500 0 0 1-6-6 19.790 19.790 0 0 1-3.070-8.670A2 2 0 0 1 4.110 2h3a2 2 0 0 1 2 1.720 12.840 12.840 0 0 0 .7 2.810 2 2 0 0 1-.45 2.110L8.090 9.910a16 16 0 0 0 6 6l1.270-1.270a2 2 0 0 1 2.110-.45 12.840 12.840 0 0 0 2.810.7A2 2 0 0 1 22 16.920z"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.500l4.500 4.500L19 7.500"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6.500 6.500l11 11M17.500 6.500l-11 11"/></symbol>
+<symbol id="i-coil" viewBox="0 0 24 24"><path d="M2.500 15h3c.5-7 3-7 3.500 0 .5-7 3-7 3.500 0 .5-7 3-7 3.500 0h5.500"/></symbol>
+</svg>
+
+<!-- ======= header ======= -->
+<header class="top">
+  <div class="wrap">
+    <a class="logo" href="#start" aria-label="На главную">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="9" fill="var(--accent)"/><path d="M19 5L9 19h7l-2 10 11-15h-7l1-9z" fill="var(--accent-ink)"/></svg>
+      <span><mark class="a" title="Название в брифе не указано">Выезд 12/24</mark><small>Минск · помощь на дороге</small></span>
+    </a>
+    <nav class="main" aria-label="Разделы">
+      <a href="#start">Прикурить</a>
+      <a href="#avtoelektrik">Автоэлектрик</a>
+      <a href="#kitajskaya-tehnika">Китайская техника</a>
+      <a href="#bez-mocheviny">Без мочевины</a>
+      <a href="#ceny">Цены</a>
+      <a href="#kontakty">Контакты</a>
+    </nav>
+    <div class="top-right">
+      <span class="status" id="status"><i></i><span>Работаем сейчас</span></span>
+      <a class="top-phone" href="tel:+375290000000"><mark class="a" title="Номер-заглушка">+375 29 000-00-00</mark></a>
+      <a class="icon-btn call" href="tel:+375290000000" aria-label="Позвонить">
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2a1 1 0 011-.25 11.4 11.4 0 003.6.57 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.45.57 3.57a1 1 0 01-.25 1z" fill="currentColor"/></svg>
+      </a>
+      <button class="icon-btn burger" id="burger" type="button" aria-label="Меню" aria-expanded="false" aria-controls="menu"><span></span></button>
+    </div>
+  </div>
+</header>
+<div class="hazard" aria-hidden="true"></div>
+
+<div class="menu" id="menu" aria-hidden="true">
+  <div class="menu-head">
+    <span class="logo"><svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="9" fill="var(--accent)"/><path d="M19 5L9 19h7l-2 10 11-15h-7l1-9z" fill="var(--accent-ink)"/></svg>Меню</span>
+    <button class="icon-btn" id="menuClose" type="button" aria-label="Закрыть меню" style="font-size:1.4rem">×</button>
+  </div>
+  <nav aria-label="Разделы">
+    <a href="#start">Прикурить авто <small>12 и 24 В</small></a>
+    <a href="#avtoelektrik">Автоэлектрик <small>выезд, диагностика</small></a>
+    <a href="#kitajskaya-tehnika">Китайская техника <small>грузовики, спецтехника</small></a>
+    <a href="#bez-mocheviny">Без мочевины <small>китайская техника</small></a>
+    <a href="#ceny">Цены и условия</a>
+    <a href="#kontakty">Контакты и зона выезда</a>
+  </nav>
+  <div class="menu-foot">
+    <a class="phone-big" href="tel:+375290000000"><mark class="a" title="Номер-заглушка">+375 29 000-00-00</mark></a>
+    <span class="muted" style="color:var(--band-muted)"><mark class="a" title="Часы не определены">Ежедневно 7:00–23:00</mark></span>
+    <button class="btn btn-main" type="button" data-sheet>Оставить заявку</button>
+  </div>
+</div>
+
+<main>
+<!-- ================= ГЛАВНАЯ: ПРИКУРИТЬ ================= -->
+<article data-page="start">
+  <section class="hero">
+    <div class="wrap">
+      <div class="stack" style="gap:20px">
+        <span class="kicker rise"><svg class="i" aria-hidden="true"><use href="#i-pin"/></svg> Минск и Минский район · 12 и 24 вольта</span>
+        <h1 class="rise d1">Прикурим автомобиль <span class="hl">с выездом</span> по Минску</h1>
+        <p class="lead rise d2">Сел аккумулятор и машина не заводится? Приедем, проверим аккумулятор и запустим. Если причина не только в батарее, предложим диагностику и дальнейшее решение.</p>
+        <div class="btn-row rise d3">
+          <a class="btn btn-main" href="tel:+375290000000">
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2a1 1 0 011-.25 11.4 11.4 0 003.6.57 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.45.57 3.57a1 1 0 01-.25 1z" fill="currentColor"/></svg>
+            Позвонить и вызвать
+          </a>
+          <button class="btn btn-ghost" type="button" data-sheet>Заявка за 20 секунд</button>
+        </div>
+        <div class="facts rise d4">
+          <div><svg class="i" aria-hidden="true"><use href="#i-tag"/></svg><b><mark class="a" title="Цена не определена">от XX BYN</mark></b><span>запуск, выезд по Минску включён</span></div>
+          <div><svg class="i" aria-hidden="true"><use href="#i-clock"/></svg><b><mark class="a" title="Срок приезда не определён">~40 мин</mark></b><span>обычно приезжаем по городу</span></div>
+          <div><svg class="i" aria-hidden="true"><use href="#i-battery"/></svg><b>12 и 24 В</b><span>легковые, грузовики, спецтехника</span></div>
+        </div>
+      </div>
+
+      <div class="dmm rise d2" aria-label="Мультиметр: напряжение аккумулятора">
+        <div class="dmm-body"><div class="dmm-face">
+          <div class="dmm-cap"><span>Цифровой мультиметр</span><i></i></div>
+          <div class="lcd" aria-live="polite">
+            <div class="lcd-row"><span class="lcd-mode">Напряжение аккумулятора</span></div>
+            <div class="lcd-row"><span class="val" id="mVal">11,9</span><span class="unit">В</span></div>
+            <div class="bar" id="mBar"></div>
+            <div class="state" id="mState">разряжен · может не запустить</div>
+          </div>
+          <svg class="dmm-dial" viewBox="0 0 320 178" aria-hidden="true">
+            <defs><radialGradient id="d-knob" cx=".35" cy=".3" r=".9"><stop offset="0" stop-color="#4E5863"/><stop offset="1" stop-color="#12161A"/></radialGradient></defs>
+            <g font-family="Golos Text,sans-serif" font-size="12" font-weight="700" fill="#8793A0" text-anchor="middle">
+              <text x="82" y="88">ВЫКЛ</text><text x="106" y="42">V~</text><text x="160" y="18" fill="#FFC21A">V=</text><text x="214" y="42">Ω</text><text x="238" y="88">A</text>
+            </g>
+            <circle cx="160" cy="84" r="50" fill="#0D1115" stroke="#39434D"/>
+            <g stroke="#5B6670" stroke-width="2" stroke-linecap="round"><path d="M110 84h-6M124.600 48.600l-4.200-4.200M195.400 48.600l4.200-4.200M210 84h6"/><path d="M160 34v-6" stroke="#FFC21A"/></g>
+            <circle cx="160" cy="84" r="40" fill="url(#d-knob)"/>
+            <rect x="151" y="40" width="18" height="88" rx="9" fill="#262E36" stroke="#4E5863"/>
+            <rect x="157" y="45" width="6" height="20" rx="3" fill="#FFC21A"/>
+            <g font-family="Golos Text,sans-serif" font-size="10" font-weight="700" fill="#8793A0" text-anchor="middle"><text x="100" y="134">10 A</text><text x="160" y="134">COM</text><text x="220" y="134">V Ω</text></g>
+            <circle cx="100" cy="154" r="12" fill="#0B0E11" stroke="#D93A1F" stroke-width="3"/><circle cx="100" cy="154" r="5" fill="#000"/>
+            <circle cx="160" cy="154" r="12" fill="#0B0E11" stroke="#59646F" stroke-width="3"/>
+            <circle cx="220" cy="154" r="12" fill="#0B0E11" stroke="#D93A1F" stroke-width="3"/>
+            <rect x="149" y="148" width="22" height="32" rx="6" fill="#20262C" stroke="#59646F"/><rect x="153" y="152" width="4" height="26" rx="2" fill="#59646F" opacity=".6"/>
+            <rect x="209" y="148" width="22" height="32" rx="6" fill="#D93A1F" stroke="#8E1E0C"/><rect x="213" y="152" width="4" height="26" rx="2" fill="#FF8A73" opacity=".7"/>
+          </svg>
+        </div></div>
+        <svg class="dmm-leads" viewBox="0 0 320 46" aria-hidden="true">
+          <path d="M160 0C160 28 110 40 24 42" fill="none" stroke="#20262C" stroke-width="10" stroke-linecap="round"/><path d="M160 0C160 28 110 40 24 42" fill="none" stroke="#59646F" stroke-width="2" opacity=".7"/>
+          <path d="M220 0C220 28 262 40 300 42" fill="none" stroke="#D93A1F" stroke-width="10" stroke-linecap="round"/><path d="M220 0C220 28 262 40 300 42" fill="none" stroke="#FF8A73" stroke-width="2" opacity=".7"/>
+        </svg>
+        <div class="dmm-ctl">
+          <p class="meter-note">Нажмите на уровень заряда или запустите двигатель. Цифры ориентировочные для 12-вольтового аккумулятора в покое.</p>
+          <div class="meter-scale" role="group" aria-label="Уровни заряда">
+            <button type="button" data-v="12.7"><b>12,7</b>заряжен</button>
+            <button type="button" data-v="12.4"><b>12,4</b>~75%</button>
+            <button type="button" data-v="12.2"><b>12,2</b>~50%</button>
+            <button type="button" data-v="11.9" aria-pressed="true"><b>11,9</b>разряжен</button>
+          </div>
+          <button class="jump-btn" id="jump" type="button"><svg class="i" aria-hidden="true"><use href="#i-bolt"/></svg>Запустить двигатель</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- symptom picker -->
+  <section class="band" id="symptoms">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">Машина не заводится</p>
+        <h2>Что происходит при повороте ключа?</h2>
+        <p class="muted">Выберите вариант, подскажем вероятную причину и что мы сделаем на месте.</p>
+      </div>
+      <div class="picker">
+        <div class="opts" role="group" aria-label="Симптом">
+          <button class="opt" type="button" data-s="click" aria-pressed="true"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-key"/></svg></span>Щёлкает, стартер не крутит</button>
+          <button class="opt" type="button" data-s="slow"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-battery-low"/></svg></span>Стартер крутит медленно, тяжело</button>
+          <button class="opt" type="button" data-s="dead"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-power"/></svg></span>Панель не горит, ничего не реагирует</button>
+          <button class="opt" type="button" data-s="crank"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-engine"/></svg></span>Крутит бодро, но не схватывает</button>
+          <button class="opt" type="button" data-s="hybrid"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-plug"/></svg></span>Гибрид или электромобиль не включается</button>
+        </div>
+        <div class="verdict" id="verdict" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band alt">
+    <div class="wrap">
+      <div class="head"><p class="eyebrow">Кого запускаем</p><h2>Что нужно запустить?</h2></div>
+      <div class="tabs" data-tabs>
+        <div class="tablist" role="tablist" aria-label="Тип техники">
+          <button role="tab" type="button" aria-selected="true" data-tab="car"><svg class="i" aria-hidden="true"><use href="#i-car"/></svg><span>Легковой</span></button>
+          <button role="tab" type="button" aria-selected="false" data-tab="truck"><svg class="i" aria-hidden="true"><use href="#i-truck"/></svg><span>Грузовик</span></button>
+          <button role="tab" type="button" aria-selected="false" data-tab="ev"><svg class="i" aria-hidden="true"><use href="#i-plug"/></svg><span>Гибрид</span></button>
+        </div>
+        <div class="tabpanel" data-panel="car" role="tabpanel">
+          <div class="volt"><b>12</b><span>вольт</span></div>
+          <div class="tp-body"><h3>Легковые автомобили</h3><p class="muted">Бензин и дизель. Подключаемся к клеммам или штатным точкам запуска.</p><ul class="checks"><li>замер аккумулятора перед запуском</li><li>запуск с пускового устройства</li><li>проверка зарядки от генератора</li></ul></div>
+          <div class="tp-cta"><b class="mono"><mark class="a" title="Цена не определена">от XX BYN</mark></b><span>выезд по Минску включён</span><button class="btn btn-main" type="button" data-sheet data-type="start">Вызвать</button></div>
+        </div>
+        <div class="tabpanel" data-panel="truck" role="tabpanel">
+          <div class="volt"><b>24</b><span>вольта</span></div>
+          <div class="tp-body"><h3>Грузовики и спецтехника</h3><p class="muted">Тягачи, самосвалы, экскаваторы, погрузчики. Оборудование и провода рассчитаны на большие токи.</p><ul class="checks"><li>запуск бортовой сети 24 вольта</li><li>выезд на стоянку, базу или объект</li><li>проверка батарей и зарядки</li></ul></div>
+          <div class="tp-cta"><b class="mono"><mark class="a" title="Цена не определена">от XX BYN</mark></b><span>выезд по Минску включён</span><button class="btn btn-main" type="button" data-sheet data-type="start">Вызвать</button></div>
+        </div>
+        <div class="tabpanel" data-panel="ev" role="tabpanel">
+          <div class="volt"><b>12</b><span>вольт</span></div>
+          <div class="tp-body"><h3>Гибриды и электромобили</h3><p class="muted">Когда села вспомогательная батарея, машина не включается, даже если тяговая заряжена.</p><ul class="checks"><li><mark class="a" title="Список поддерживаемых моделей нужно получить у заказчика">уточняем модель по телефону</mark></li><li>подключаемся к штатным точкам</li><li>проверяем систему после включения</li></ul></div>
+          <div class="tp-cta"><b class="mono"><mark class="a" title="Цена не определена">от XX BYN</mark></b><span>выезд по Минску включён</span><button class="btn btn-main" type="button" data-sheet data-type="start">Вызвать</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap split">
+      <div class="stack">
+        <p class="eyebrow">Оборудование</p>
+        <h2>Чем запускаем</h2>
+        <p>Используем пусковое устройство или мощный переносной аккумулятор и провода большого сечения. Способ подключения подбираем под автомобиль и напряжение его бортовой сети. Перед запуском проверяем состояние аккумулятора и соединений.</p>
+        <ul class="checks">
+          <li>замеряем напряжение до запуска, а не после;</li>
+          <li>смотрим клеммы и окислы, чтобы не было искры и перегрева;</li>
+          <li>после запуска проверяем, заряжает ли генератор.</li>
+        </ul>
+      </div>
+      <div class="kit">
+        <div class="scan" id="boost"><svg viewBox="0 0 640 380" role="img" aria-label="Пусковое устройство, подключённое проводами с зажимами к автомобильному аккумулятору">
+          <defs>
+            <linearGradient id="k-case" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3B444E"/><stop offset="1" stop-color="#1A1F25"/></linearGradient>
+            <linearGradient id="k-yel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD65C"/><stop offset="1" stop-color="#D49500"/></linearGradient>
+            <linearGradient id="k-batt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#30373F"/><stop offset="1" stop-color="#0E1114"/></linearGradient>
+            <linearGradient id="k-lid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5A6470"/><stop offset="1" stop-color="#2B3239"/></linearGradient>
+            <linearGradient id="k-lead" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6E7780"/><stop offset=".45" stop-color="#DDE2E6"/><stop offset="1" stop-color="#666F78"/></linearGradient>
+            <linearGradient id="k-cu" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F2BE8A"/><stop offset="1" stop-color="#A9612A"/></linearGradient>
+            <linearGradient id="k-lcd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D6E3C2"/><stop offset="1" stop-color="#AFC29B"/></linearGradient>
+            <radialGradient id="k-sh"><stop offset="0" stop-color="#000" stop-opacity=".65"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+          </defs>
+          <ellipse cx="145" cy="338" rx="145" ry="16" fill="url(#k-sh)"/>
+          <ellipse cx="500" cy="336" rx="140" ry="15" fill="url(#k-sh)"/>
+          <!-- booster -->
+          <path d="M88 122V88a24 24 0 0 1 24-24h66a24 24 0 0 1 24 24v34" fill="none" stroke="#20262C" stroke-width="18" stroke-linecap="round"/>
+          <path d="M84 116V88a28 28 0 0 1 28-28h66a28 28 0 0 1 28 28v28" fill="none" stroke="#4A545E" stroke-width="2.500" stroke-linecap="round" opacity=".7"/>
+          <rect x="112" y="53" width="66" height="22" rx="11" fill="url(#k-yel)"/>
+          <rect x="34" y="106" width="222" height="230" rx="30" fill="url(#k-yel)"/>
+          <path d="M40 152h210v138H40zM82 112h126v218H82z" fill="url(#k-case)"/>
+          <rect x="58" y="128" width="174" height="186" rx="15" fill="#12161B" stroke="#323B45" stroke-width="1.500"/>
+          <rect x="78" y="146" width="134" height="58" rx="7" fill="url(#k-lcd)" stroke="#0B0E11" stroke-width="2"/>
+          <text x="88" y="162" font-family="Golos Text,sans-serif" font-size="9" font-weight="700" fill="#3A4A2C" letter-spacing=".5" id="bLbl">ГОТОВ К ПУСКУ</text>
+          <text x="145" y="194" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="29" font-weight="700" fill="#18210F" id="bVal">24,1 В</text>
+          <rect id="b12r" x="78" y="216" width="62" height="28" rx="8" fill="#252D36"/><text id="b12t" x="109" y="235" text-anchor="middle" font-family="Golos Text,sans-serif" font-size="13" font-weight="700" fill="#8D99A5">12 В</text>
+          <rect id="b24r" x="150" y="216" width="62" height="28" rx="8" fill="url(#k-yel)"/><text id="b24t" x="181" y="235" text-anchor="middle" font-family="Golos Text,sans-serif" font-size="13" font-weight="700" fill="#121A22">24 В</text>
+          <g id="bLed"><circle cx="86" cy="272" r="5" fill="#4CC27D"/><circle cx="104" cy="272" r="5" fill="#4CC27D"/><circle cx="122" cy="272" r="5" fill="#4CC27D"/></g><circle cx="140" cy="272" r="5" fill="#2B343D"/>
+          <text x="80" y="296" font-family="Golos Text,sans-serif" font-size="10" fill="#7F8C98">заряд устройства</text>
+          <circle cx="194" cy="278" r="18" fill="#0B0E11"/><circle cx="194" cy="278" r="14" fill="#D93A1F"/><path d="M194 271v7M189.500 273.500a6.500 6.500 0 1 0 9 0" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+          <rect x="250" y="262" width="13" height="16" rx="3" fill="#0B0E11"/><rect x="250" y="288" width="13" height="16" rx="3" fill="#0B0E11"/>
+          <!-- battery -->
+          <rect x="400" y="214" width="200" height="118" rx="8" fill="url(#k-batt)"/>
+          <path d="M400 238h200M400 322h200" stroke="#3A424B" stroke-width="1.500"/>
+          <rect x="420" y="250" width="160" height="62" rx="4" fill="#E9EDF0"/>
+          <path d="M420 254a4 4 0 0 1 4-4h152a4 4 0 0 1 4 4v14H420z" fill="#1E5A8F"/>
+          <text x="500" y="263" text-anchor="middle" font-family="Golos Text,sans-serif" font-size="9.500" font-weight="700" fill="#fff" letter-spacing="1">СТАРТЕРНАЯ БАТАРЕЯ</text>
+          <text x="500" y="289" text-anchor="middle" font-family="Golos Text,sans-serif" font-size="12.500" font-weight="700" fill="#121A22">12 В · 74 А·ч · 680 А</text>
+          <text x="500" y="304" text-anchor="middle" font-family="Golos Text,sans-serif" font-size="9" fill="#55626F">не требует обслуживания</text>
+          <rect x="394" y="198" width="212" height="22" rx="6" fill="url(#k-lid)"/>
+          <g fill="#1B2026"><rect x="448" y="193" width="13" height="8" rx="2"/><rect x="469" y="193" width="13" height="8" rx="2"/><rect x="490" y="193" width="13" height="8" rx="2"/><rect x="511" y="193" width="13" height="8" rx="2"/><rect x="532" y="193" width="13" height="8" rx="2"/></g>
+          <rect x="412" y="180" width="20" height="20" fill="url(#k-lead)"/><ellipse cx="422" cy="180" rx="10" ry="3.500" fill="#E6EAED"/>
+          <rect x="568" y="180" width="20" height="20" fill="url(#k-lead)"/><ellipse cx="578" cy="180" rx="10" ry="3.500" fill="#E6EAED"/>
+          <text x="404" y="234" font-family="JetBrains Mono,monospace" font-size="15" font-weight="700" fill="#EF5B3F">+</text>
+          <text x="586" y="234" font-family="JetBrains Mono,monospace" font-size="15" font-weight="700" fill="#9FAAB5">−</text>
+          <!-- black cable + clamp -->
+          <path d="M262 296C360 300 380 30 500 40S654 62 616 121" fill="none" stroke="#39434D" stroke-width="12" stroke-linecap="round"/>
+          <path d="M262 296C360 300 380 30 500 40S654 62 616 121" fill="none" stroke="#5B6670" stroke-width="2.500" opacity=".7"/>
+          <g transform="translate(578,181) rotate(-57.200)">
+            <path d="M0 2L22 10L70 17a6.500 6.500 0 0 0 0-13L30 2z" fill="#2B333B"/>
+            <path d="M0-2L22-10L70-17a6.500 6.500 0 0 1 0 13L30-2z" fill="#5B6670"/>
+            <path d="M0-2L13-6.500V6.500L0 2z" fill="url(#k-cu)"/>
+            <circle cx="31" cy="0" r="5" fill="#D5DBE0"/><circle cx="31" cy="0" r="2" fill="#6B747D"/>
+          </g>
+          <!-- red cable + clamp -->
+          <path d="M262 270C330 270 338 56 383 122" fill="none" stroke="#C5331A" stroke-width="12" stroke-linecap="round"/>
+          <path d="M262 270C330 270 338 56 383 122" fill="none" stroke="#FF8A73" stroke-width="2.500" opacity=".7"/>
+          <g transform="translate(422,181) rotate(-124)">
+            <path d="M0 2L22 10L70 17a6.500 6.500 0 0 0 0-13L30 2z" fill="#A82813"/>
+            <path d="M0-2L22-10L70-17a6.500 6.500 0 0 1 0 13L30-2z" fill="#E8492F"/>
+            <path d="M0-2L13-6.500V6.500L0 2z" fill="url(#k-cu)"/>
+            <circle cx="31" cy="0" r="5" fill="#D5DBE0"/><circle cx="31" cy="0" r="2" fill="#6B747D"/>
+          </g>
+        </svg><button type="button" id="bBtn12" aria-label="Режим 12 вольт" style="left:12.19%;top:56.84%;width:9.69%;height:7.37%"></button><button type="button" id="bBtn24" aria-label="Режим 24 вольта" style="left:23.44%;top:56.84%;width:9.69%;height:7.37%"></button><button type="button" id="bBtnP" aria-label="Включить или выключить устройство" style="left:27.50%;top:68.42%;width:5.62%;height:9.47%"></button></div>
+        <div class="specs">
+          <div><svg class="i" aria-hidden="true"><use href="#i-battery"/></svg><b>12 и 24 В</b><span>оба напряжения</span></div>
+          <div><svg class="i" aria-hidden="true"><use href="#i-cable"/></svg><b><mark class="a" title="Сечение провода не указано">35 мм²</mark></b><span>сечение проводов</span></div>
+          <div><svg class="i" aria-hidden="true"><use href="#i-snow"/></svg><b>до −25 °C</b><span><mark class="a" title="Температурный режим не указан">работаем в мороз</mark></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band alt">
+    <div class="wrap">
+      <div class="head"><p class="eyebrow">Сравнение</p><h2>Прикурить от соседа или вызвать нас</h2></div>
+      <div class="cmp" role="table" aria-label="Сравнение способов запуска">
+          <div class="cmp-h" role="row"><span></span><span role="columnheader">От другой машины</span><span role="columnheader" class="us">С нами</span></div>
+          <div class="cmp-r" role="row"><b role="rowheader">Что нужно</b><span class="no" role="cell"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg>второй автомобиль и провода</span><span class="yes" role="cell"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>ничего, всё привозим</span></div>
+          <div class="cmp-r" role="row"><b role="rowheader">Электроника</b><span class="no" role="cell"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg>при ошибке подключения можно повредить блоки обеих машин</span><span class="yes" role="cell"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>проверяем полярность и клеммы до подключения</span></div>
+          <div class="cmp-r" role="row"><b role="rowheader">Грузовик 24 вольта</b><span class="no" role="cell"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg>от легкового не запустить</span><span class="yes" role="cell"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>есть оборудование на 24 вольта</span></div>
+          <div class="cmp-r" role="row"><b role="rowheader">Причина разряда</b><span class="no" role="cell"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg>останется неизвестной</span><span class="yes" role="cell"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>проверим аккумулятор и генератор</span></div>
+          <div class="cmp-r" role="row"><b role="rowheader">Сколько ждать</b><span class="no" role="cell"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg>пока найдёте, кто поможет</span><span class="yes" role="cell"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg><mark class="a" title="Срок приезда не определён">около 40 минут по городу</mark></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band dark">
+    <div class="wrap">
+      <div class="head"><p class="eyebrow">Как проходит вызов</p><h2>От звонка до запуска</h2></div>
+      <ol class="tl">
+        <li><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-phone"/></svg></span><span class="t">вы звоните</span><h3>Звонок</h3><p class="muted">Называете адрес и что с машиной. Сразу говорим цену.</p></li>
+        <li><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-pin"/></svg></span><span class="t"><mark class="a" title="Срок приезда не определён">≈ 40 минут</mark></span><h3>Выезд</h3><p class="muted">Едем к вам с пусковым устройством.</p></li>
+        <li><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-diag"/></svg></span><span class="t"><mark class="a" title="Оценка времени, нужно подтвердить">2–3 минуты</mark></span><h3>Замер</h3><p class="muted">Проверяем аккумулятор и клеммы до подключения.</p></li>
+        <li><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-bolt"/></svg></span><span class="t"><mark class="a" title="Оценка времени, нужно подтвердить">около 5 минут</mark></span><h3>Запуск</h3><p class="muted">Подключаем устройство и заводим двигатель.</p></li>
+        <li><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg></span><span class="t"><mark class="a" title="Оценка времени, нужно подтвердить">ещё 5 минут</mark></span><h3>Проверка</h3><p class="muted">Смотрим, заряжает ли генератор, и говорим, можно ли ехать.</p></li>
+      </ol>
+      <div class="after">
+        <div><h3>Разберёмся, почему разрядился аккумулятор</h3><p class="muted">При необходимости проверим зарядку, поищем утечку тока или проведём компьютерную диагностику. Если батарея требует зарядки или замены, объясним дальнейшие действия.</p></div>
+        <a class="btn btn-main" href="#avtoelektrik">Диагностика и автоэлектрик</a>
+      </div>
+      <ul class="trust"><li><svg class="i" aria-hidden="true"><use href="#i-chat"/></svg>Объясняем простыми словами</li><li><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg>Не меняем детали без оснований</li><li><svg class="i" aria-hidden="true"><use href="#i-tag"/></svg>Цену согласуем заранее</li></ul>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap">
+      <div class="head"><p class="eyebrow">Ещё помогаем</p><h2>Если одного запуска недостаточно</h2></div>
+      <div class="rail r3" data-rail>
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-diag"/></svg></span><h3>Выездная диагностика</h3><p class="muted">Чтение ошибок, проверка стартера, генератора, поиск утечки тока.</p><a class="more" href="#avtoelektrik">Подробнее →</a></div>
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-wrench"/></svg></span><h3>Мелкий ремонт на месте</h3><p class="muted">Клеммы, предохранители, реле, доступные разъёмы и провода.</p><a class="more" href="#avtoelektrik">Подробнее →</a></div>
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-battery"/></svg></span><h3>Замена аккумулятора</h3><p class="muted">Привезём и установим новую батарею, старую заберём на утилизацию.</p><a class="more" href="#ceny">Цена →</a></div>
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-fuel"/></svg></span><h3>Подвоз топлива</h3><p class="muted">Бензин или дизель, если закончилось в дороге.</p><a class="more" href="#ceny">Цена →</a></div>
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-wheel"/></svg></span><h3>Замена колеса</h3><p class="muted">Поставим запасное колесо, если оно есть и исправно.</p><a class="more" href="#ceny">Цена →</a></div>
+        <div class="card on-dark" style="background:var(--band);color:var(--band-ink);border-color:var(--band)"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-truck"/></svg></span><h3>Китайские грузовики и спецтехника</h3><p style="color:var(--band-muted)">Электрика, диагностика, программные работы. HOWO, Shacman, SANY и другие.</p><a class="more" style="color:var(--accent)" href="#kitajskaya-tehnika">Раздел для техники →</a></div>
+      </div>
+      <div class="rail-hint" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <section class="band alt">
+    <div class="wrap split">
+      <div class="stack">
+        <p class="eyebrow">Сезон</p>
+        <h2>В мороз аккумуляторы подводят в разы чаще</h2>
+        <p class="muted">В январе 2026 года «прикурить авто» в Минске и области искали почти в пять раз чаще, чем в среднем летом. Проверьте батарею до холодов.</p>
+        <ul class="ilist one">
+          <li><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-clock"/></svg></span><span><b>Батарее больше 4–5 лет</b><small>проверьте её до морозов</small></span></li>
+          <li><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-pin"/></svg></span><span><b>Короткие поездки</b><small>генератор не успевает зарядить батарею</small></span></li>
+          <li><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-snow"/></svg></span><span><b>Ниже −15 °C</b><small>ёмкость батареи заметно падает</small></span></li>
+        </ul>
+      </div>
+      <figure class="chart" id="season">
+        <figcaption><b>Сколько раз в месяц ищут «прикурить авто»</b><span>Минск и Минская область, октябрь 2025 – сентябрь 2026</span></figcaption>
+        <div class="readout" id="seasonOut" aria-live="polite"></div>
+        <div class="plot"><div class="bars" id="seasonBars"></div></div>
+        <div class="xl" id="seasonX" aria-hidden="true"></div>
+        <details><summary>Показать таблицей</summary><table id="seasonT"></table></details>
+        <p class="src">Источник: Яндекс Вордстат, все устройства.</p>
+      </figure>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap split">
+      <div>
+        <div class="head"><p class="eyebrow">Вопросы</p><h2>Частые вопросы о запуске</h2></div>
+        <div class="faq">
+          <details><summary>Сколько стоит прикурить машину?</summary><p>Запуск легкового автомобиля по Минску стоит <mark class="a" title="Цена не определена">XX BYN</mark>, выезд уже включён. За МКАД добавляется доплата за километраж.</p></details>
+          <details><summary>Что если запустить не получится?</summary><p><mark class="a" title="Правило оплаты предложено, нужно согласовать">Тогда вы оплачиваете только выезд.</mark> На месте скажем, в чём, скорее всего, дело, и предложим диагностику или СТО.</p></details>
+          <details><summary>Можно ли ехать сразу после запуска?</summary><p>Да, если генератор заряжает, мы это проверяем. Лучше проехать 30–40 минут без остановок, а батарею потом проверить и подзарядить.</p></details>
+          <details><summary>Запускаете фуры и технику на 24 В?</summary><p>Да. Возим оборудование для сетей 12 и 24 В. Для техники за городом уточняйте время приезда.</p></details>
+          <details><summary>Даёте документы об оплате?</summary><p>Да, <mark class="a" title="Форма работы (ИП/ООО) не указана">документ об оплате выдаём согласно форме работы</mark>. Для организаций возможен безналичный расчёт.</p></details>
+        </div>
+      </div>
+      <div data-form="start"></div>
+    </div>
+  </section>
+</article>
+
+<!-- ================= АВТОЭЛЕКТРИК ================= -->
+<article data-page="avtoelektrik" hidden>
+  <section class="hero">
+    <div class="wrap">
+      <div class="stack" style="gap:20px">
+        <p class="crumbs"><a href="#start">Главная</a> / Автоэлектрик с выездом</p>
+        <h1>Автоэлектрик <span class="hl">с выездом</span> в Минске</h1>
+        <p class="lead">Автомобиль не заводится, аккумулятор постоянно разряжается или на панели появилась ошибка? Проверим машину на месте, объясним результаты и предложим решение. Доступную неисправность устраним на выезде, для сложной поможем с мастерской.</p>
+        <div class="btn-row">
+          <a class="btn btn-main" href="tel:+375290000000">Вызвать автоэлектрика</a>
+          <button class="btn btn-ghost" type="button" data-sheet data-type="diag">Описать проблему</button>
+        </div>
+        <div class="facts">
+          <div><svg class="i" aria-hidden="true"><use href="#i-tag"/></svg><b><mark class="a" title="Цена не определена">XX BYN</mark></b><span>диагностика на месте</span></div>
+          <div><svg class="i" aria-hidden="true"><use href="#i-diag"/></svg><b>Сканер</b><span>читаем ошибки и параметры</span></div>
+          <div><svg class="i" aria-hidden="true"><use href="#i-wrench"/></svg><b>Ремонт</b><span>на месте или поможем с СТО</span></div>
+        </div>
+      </div>
+      <figure class="shot"><div class="scan" id="scan">
+        <svg viewBox="30 44 530 330" role="img" aria-label="Диагностический сканер: экраны с ошибками и параметрами можно листать кнопками">
+          <defs>
+            <linearGradient id="s-body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3B444E"/><stop offset="1" stop-color="#171C21"/></linearGradient>
+            <linearGradient id="s-grip" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#EA4C32"/><stop offset="1" stop-color="#9E2410"/></linearGradient>
+            <linearGradient id="s-scr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#10212E"/><stop offset="1" stop-color="#0A141C"/></linearGradient>
+            <radialGradient id="s-sh"><stop offset="0" stop-color="#000" stop-opacity=".65"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+          </defs>
+          <ellipse cx="240" cy="358" rx="215" ry="16" fill="url(#s-sh)"/>
+          <path d="M240 98C240 20 380 24 426 94" fill="none" stroke="#39434D" stroke-width="10" stroke-linecap="round"/>
+          <path d="M240 98C240 20 380 24 426 94" fill="none" stroke="#5B6670" stroke-width="2" opacity=".7"/>
+          <rect x="412" y="78" width="42" height="42" rx="9" fill="#1A1F25" stroke="#3A434D"/>
+          <path d="M446 70h96a6 6 0 0 1 5.800 7.400l-9.600 44a6 6 0 0 1-5.900 4.600h-76.600a6 6 0 0 1-5.900-4.600l-9.600-44A6 6 0 0 1 446 70z" fill="#262D35" stroke="#5B6670" stroke-width="1.500"/>
+          <path d="M452 78h84l-7.500 40h-69z" fill="#12161B"/>
+          <g fill="#D9B45A"><rect x="459" y="84" width="5" height="11"/><rect x="469" y="84" width="5" height="11"/><rect x="479" y="84" width="5" height="11"/><rect x="489" y="84" width="5" height="11"/><rect x="499" y="84" width="5" height="11"/><rect x="509" y="84" width="5" height="11"/><rect x="519" y="84" width="5" height="11"/><rect x="529" y="84" width="5" height="11"/>
+          <rect x="463" y="102" width="5" height="11"/><rect x="473" y="102" width="5" height="11"/><rect x="483" y="102" width="5" height="11"/><rect x="493" y="102" width="5" height="11"/><rect x="503" y="102" width="5" height="11"/><rect x="513" y="102" width="5" height="11"/><rect x="523" y="102" width="5" height="11"/></g>
+          <rect x="50" y="132" width="36" height="188" rx="17" fill="url(#s-grip)"/><rect x="394" y="132" width="36" height="188" rx="17" fill="url(#s-grip)"/>
+          <rect x="66" y="98" width="348" height="256" rx="28" fill="url(#s-body)" stroke="#0B0E11" stroke-width="2"/>
+          <path d="M94 100h292" stroke="#fff" stroke-opacity=".12" stroke-width="2" stroke-linecap="round"/>
+          <rect x="226" y="88" width="28" height="16" rx="5" fill="#0B0E11"/>
+          <rect x="98" y="118" width="284" height="180" rx="9" fill="#05080B"/>
+          <rect x="102" y="122" width="276" height="172" rx="6" fill="url(#s-scr)"/>
+          <path d="M102 128a6 6 0 0 1 6-6h264a6 6 0 0 1 6 6v20H102z" fill="#17364F"/>
+          <circle cx="366" cy="135" r="4" fill="#4CC27D"/>
+          <g id="scanScr"></g>
+          <circle cx="130" cy="326" r="17" fill="#0E1216" stroke="#3A434D"/><path d="M130 316v20M120 326h20" stroke="#8793A0" stroke-width="2" stroke-linecap="round"/>
+          <rect x="196" y="312" width="88" height="28" rx="14" fill="#2E9E5B"/><text x="240" y="331" text-anchor="middle" font-family="Golos Text,sans-serif" font-size="13" font-weight="700" fill="#fff">OK</text>
+          <rect x="300" y="312" width="80" height="28" rx="14" fill="#0E1216" stroke="#3A434D"/><text x="340" y="331" text-anchor="middle" font-family="Golos Text,sans-serif" font-size="12" font-weight="700" fill="#AEB9C3">Назад</text>
+        </svg>
+        <button type="button" id="scanPad" aria-label="Новый замер" style="left:15.66%;top:80.30%;width:6.42%;height:10.30%"></button><button type="button" id="scanOk" aria-label="OK, следующий экран" style="left:31.32%;top:81.21%;width:16.60%;height:8.48%"></button><button type="button" id="scanBack" aria-label="Назад, предыдущий экран" style="left:50.94%;top:81.21%;width:15.09%;height:8.48%"></button>
+        </div>
+        <figcaption class="scan-cap">Нажимайте OK и «Назад», чтобы листать экраны. Кнопка с плюсом делает новый замер. Данные на экране условные.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="band alt">
+    <div class="wrap">
+      <div class="head"><p class="eyebrow">Приборная панель</p><h2>Какая лампа горит?</h2><p class="muted">Нажмите на значок: расскажем, что он означает и что мы проверим.</p></div>
+      <div class="picker">
+        <div class="cluster" role="group" aria-label="Лампы на приборной панели">
+          <button class="lamp red" type="button" data-l="batt" aria-pressed="true"><span><svg class="i" aria-hidden="true"><use href="#i-battery"/></svg></span>Аккумулятор</button>
+          <button class="lamp amb" type="button" data-l="engine" aria-pressed="false"><span><svg class="i" aria-hidden="true"><use href="#i-engine"/></svg></span>Двигатель</button>
+          <button class="lamp amb" type="button" data-l="key" aria-pressed="false"><span><svg class="i" aria-hidden="true"><use href="#i-key"/></svg></span>Ключ</button>
+          <button class="lamp amb" type="button" data-l="coil" aria-pressed="false"><span><svg class="i" aria-hidden="true"><use href="#i-coil"/></svg></span>Свечи накала</button>
+          <button class="lamp off" type="button" data-l="off" aria-pressed="false"><span><svg class="i" aria-hidden="true"><use href="#i-power"/></svg></span>Панель не горит</button>
+        </div>
+        <div class="verdict light" id="lampVerdict" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap">
+      <div class="head"><p class="eyebrow">Что делаем на выезде</p><h2>Услуги автоэлектрика</h2></div>
+      <div class="bento">
+        <div class="bt wide feat"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-diag"/></svg></span><b>Компьютерная диагностика</b><small>Первичная компьютерная и визуальная проверка на месте.</small></div>
+        <div class="bt"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-alert"/></svg></span><b>Ошибки и параметры</b><small>Читаем коды и текущие данные.</small></div>
+        <div class="bt"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-battery"/></svg></span><b>Аккумулятор, стартер, генератор</b><small>Проверяем цепь запуска и зарядки.</small></div>
+        <div class="bt"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-battery-low"/></svg></span><b>Утечка тока</b><small>Находим, что сажает батарею на стоянке.</small></div>
+        <div class="bt"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-cable"/></svg></span><b>Проводка и контакты</b><small>Ищем обрывы, окислы и плохие разъёмы.</small></div>
+        <div class="bt wide inv"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-wrench"/></svg></span><b>Небольшой ремонт на месте</b><small>Устраняем то, что можно сделать на выезде.</small></div>
+        <div class="bt"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg></span><b>Сброс ошибок</b><small>Удаляем сохранённые ошибки после проверки.</small></div>
+        <div class="bt"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-bolt"/></svg></span><b>Замена аккумулятора</b><small>Привезём, установим, старый заберём.</small></div>
+        <div class="bt wide"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-chat"/></svg></span><b>Не нашли свою проблему?</b><small>Опишите, что происходит. Скажем, поможем ли на выезде.</small><button class="btn btn-main" type="button" data-sheet data-type="diag">Описать проблему</button></div>
+      </div>
+      <p class="note" style="margin-top:28px">По легковым автомобилям мы делаем первичную диагностику и работы, доступные на выезде. Сложные задачи решаем вместе с профильными специалистами и партнёрскими СТО.</p>
+    </div>
+  </section>
+
+  <section class="band alt">
+    <div class="wrap">
+      <div class="head"><p class="eyebrow">Порядок работы</p><h2>Как проходит вызов</h2></div>
+      <ol class="steps">
+        <li><h3>Рассказываете о проблеме</h3><p class="muted">По телефону или в мессенджере. Можно прислать фото панели с ошибкой.</p></li>
+        <li><h3>Уточняем симптомы</h3><p class="muted">Договариваемся о выезде и называем стоимость диагностики.</p></li>
+        <li><h3>Проверяем на месте</h3><p class="muted">Объясняем, что обнаружили, простыми словами.</p></li>
+        <li><h3>Согласовываем работы</h3><p class="muted">Ремонт только после согласия на состав и цену. Результат проверяем при вас.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="band dark">
+    <div class="wrap split">
+      <div class="stack">
+        <p class="eyebrow">Если на месте не решить</p>
+        <h2>Поможем с ремонтом на СТО</h2>
+        <p class="muted">Если устранить неисправность на месте не получается, поможем подобрать профильную СТО и записаться на ремонт. Передадим результаты первичной проверки, чтобы работа там началась с уже собранной информации.</p>
+      </div>
+      <div class="stack" style="gap:12px">
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-doc"/></svg></span><h3>Отчёт с диагностики</h3><p class="muted">Список ошибок и замеров.</p></div>
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-user"/></svg></span><h3>Подходящий специалист</h3><p class="muted">Скажем, к кому ехать с вашей неисправностью.</p></div>
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-calendar"/></svg></span><h3>Запись на ремонт</h3><p class="muted">Поможем записаться на удобное время.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap split">
+      <div>
+        <div class="head"><p class="eyebrow">Вопросы</p><h2>Частые вопросы</h2></div>
+        <div class="faq">
+          <details><summary>Не заводится, а аккумулятор заряжен</summary><p>Чаще всего дело в стартере, его реле, массе или контактах. Иногда в иммобилайзере или топливной системе. Это как раз задача для выездной диагностики.</p></details>
+          <details><summary>Аккумулятор садится за ночь</summary><p>Ищем утечку тока: по очереди проверяем цепи и находим потребитель, который не засыпает. Частые причины: магнитола, сигнализация, видеорегистратор, реле.</p></details>
+          <details><summary>Сколько стоит вызов автоэлектрика?</summary><p>Выездная диагностика по Минску стоит <mark class="a" title="Цена не определена">XX BYN</mark>. Стоимость ремонта называем после проверки и до начала работ.</p></details>
+          <details><summary>Ремонтируете двигатель или ходовую на месте?</summary><p>Нет. На выезде работаем с электрикой и мелкими неисправностями. С двигателем, тормозами и ходовой поможем записаться на СТО.</p></details>
+          <details><summary>В какие районы выезжаете?</summary><p>Во все районы Минска: Заводской, Фрунзенский, Московский, Первомайский, Ленинский, Партизанский, Советский, Центральный, Октябрьский, включая Уручье, Шабаны, Малиновку, Каменную Горку. По Минскому району тоже.</p></details>
+        </div>
+      </div>
+      <div data-form="diag"></div>
+    </div>
+  </section>
+</article>
+
+<!-- ================= КИТАЙСКАЯ ТЕХНИКА ================= -->
+<article data-page="kitajskaya-tehnika" hidden>
+  <section class="hero">
+    <div class="wrap">
+      <div class="stack" style="gap:20px">
+        <p class="crumbs"><a href="#start">Главная</a> / Китайская техника</p>
+        <h1>Электрика и диагностика <span class="hl">китайских</span> грузовиков и спецтехники</h1>
+        <p class="lead">Поиск неисправностей проводки и электронных систем, программные работы и настройка поддерживаемых блоков. Для сложных задач подключаем специалистов из Китая.</p>
+        <div class="btn-row">
+          <button class="btn btn-main" type="button" data-sheet data-type="china">Обсудить задачу</button>
+          <a class="btn btn-ghost" href="#bez-mocheviny">Работа без мочевины</a>
+        </div>
+        <div class="facts">
+          <div><svg class="i" aria-hidden="true"><use href="#i-battery"/></svg><b>Запуск 24 В</b><span>выезжаем на объект</span></div>
+          <div><svg class="i" aria-hidden="true"><use href="#i-chip"/></svg><b>Электроника</b><span>блоки, проводка, настройка</span></div>
+          <div><svg class="i" aria-hidden="true"><use href="#i-headset"/></svg><b>Китай на связи</b><span>подключаем специалиста</span></div>
+        </div>
+      </div>
+      <figure class="shot"><div class="hot" id="hot">
+        <svg viewBox="100 40 520 270" role="img" aria-label="Самосвал, вид сбоку, с отмеченными узлами">
+          <defs>
+            <linearGradient id="t-cab" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#EA4C32"/><stop offset="1" stop-color="#A32612"/></linearGradient>
+            <linearGradient id="t-body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#808D9A"/><stop offset="1" stop-color="#434E59"/></linearGradient>
+            <linearGradient id="t-glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#BFDDF0"/><stop offset="1" stop-color="#2F5878"/></linearGradient>
+            <linearGradient id="t-alu" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E4E9ED"/><stop offset=".5" stop-color="#A9B3BC"/><stop offset="1" stop-color="#6B757F"/></linearGradient>
+            <radialGradient id="t-rim" cx=".4" cy=".35" r=".8"><stop offset="0" stop-color="#EEF2F5"/><stop offset="1" stop-color="#6B757F"/></radialGradient>
+            <radialGradient id="t-sh"><stop offset="0" stop-color="#000" stop-opacity=".7"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+            <g id="t-wheel"><circle r="35" fill="#0E1114"/><circle r="32" fill="none" stroke="#2B3239" stroke-width="5" stroke-dasharray="4 4"/><circle r="26" fill="#15191D"/><circle r="20" fill="url(#t-rim)"/><circle r="20" fill="none" stroke="#4A545E" stroke-width="1.500"/><g fill="#3A434D"><circle cx="12" r="2.200"/><circle cx="-12" r="2.200"/><circle cx="6" cy="10.400" r="2.200"/><circle cx="-6" cy="10.400" r="2.200"/><circle cx="6" cy="-10.400" r="2.200"/><circle cx="-6" cy="-10.400" r="2.200"/></g><circle r="6.500" fill="#8A97A4" stroke="#4A545E"/></g>
+          </defs>
+          <ellipse cx="335" cy="294" rx="305" ry="14" fill="url(#t-sh)"/>
+          <rect x="441" y="60" width="9" height="162" rx="3" fill="url(#t-alu)"/>
+          <path d="M126 214L140 110H438V214z" fill="url(#t-body)"/>
+          <g fill="#55616D"><rect x="196" y="116" width="8" height="98"/><rect x="258" y="116" width="8" height="98"/><rect x="320" y="116" width="8" height="98"/><rect x="382" y="116" width="8" height="98"/><path d="M134 160h304v6H133z"/></g>
+          <rect x="134" y="102" width="310" height="12" rx="3" fill="#97A4B0"/>
+          <path d="M438 102h112v9H458l-12 9h-8z" fill="#808D9A"/>
+          <path d="M142 118h294v7H141z" fill="#fff" opacity=".12"/>
+          <rect x="118" y="214" width="454" height="14" rx="2" fill="#15191D"/>
+          <path d="M300 228h160v10H300z" fill="#1E242A"/>
+          <rect x="350" y="230" width="56" height="40" rx="12" fill="url(#t-alu)"/><rect x="364" y="230" width="5" height="40" fill="#5B6670"/><rect x="387" y="230" width="5" height="40" fill="#5B6670"/><rect x="306" y="238" width="38" height="32" rx="4" fill="#1B2229" stroke="#4A545E"/><rect x="306" y="238" width="38" height="8" rx="3" fill="#39434D"/><rect x="312" y="233" width="7" height="6" rx="1.500" fill="#E5482F"/><rect x="331" y="233" width="7" height="6" rx="1.500" fill="#2D7DD2"/><path d="M327 249l-6 9h5l-2 8 7-10h-5z" fill="#FFC21A"/>
+          <rect x="412" y="236" width="34" height="34" rx="7" fill="#27313B" stroke="#4A545E"/><circle cx="429" cy="236" r="6" fill="#2D7DD2"/>
+          <path d="M452 228V112q0-16 16-16h72q12 0 17 11l17 43q4 10 4 22v56z" fill="url(#t-cab)"/>
+          <path d="M452 190h126v9H452z" fill="#fff" opacity=".16"/>
+          <path d="M474 112h64q8 0 11 7l14 33H474z" fill="url(#t-glass)"/>
+          <path d="M486 112h18l-16 40h-14v-12z" fill="#fff" opacity=".25"/>
+          <path d="M466 104h80l24 54v60H466z" fill="none" stroke="#7E1D0D" stroke-width="1.500"/>
+          <rect x="474" y="166" width="18" height="5" rx="2.500" fill="#1A1F24"/>
+          <path d="M566 122l22-8" stroke="#14181C" stroke-width="3"/><rect x="586" y="104" width="9" height="32" rx="3" fill="#14181C"/>
+          <rect x="566" y="196" width="12" height="16" rx="3" fill="#FFE9A8"/>
+          <rect x="498" y="88" width="18" height="9" rx="3" fill="#FFA41A"/>
+          <path d="M458 228a42 42 0 0 1 84 0z" fill="#14181C"/>
+          <rect x="546" y="222" width="44" height="24" rx="6" fill="#23292F"/><circle cx="579" cy="234" r="3.500" fill="#FFD98A"/>
+          <path d="M128 250q0-40 40-40h92q40 0 40 40" fill="none" stroke="#15191D" stroke-width="7"/>
+          <use href="#t-wheel" x="172" y="256"/><use href="#t-wheel" x="252" y="256"/><use href="#t-wheel" x="500" y="256"/>
+        </svg><button type="button" data-h="0" aria-pressed="true" aria-label="Узел 1" style="left:79.6%;top:39.3%">+</button><button type="button" data-h="1" aria-pressed="false" aria-label="Узел 2" style="left:71.2%;top:61.1%">+</button><button type="button" data-h="2" aria-pressed="false" aria-label="Узел 3" style="left:66.3%;top:16.3%">+</button><button type="button" data-h="3" aria-pressed="false" aria-label="Узел 4" style="left:43.3%;top:79.3%">+</button><button type="button" data-h="4" aria-pressed="false" aria-label="Узел 5" style="left:36.5%;top:40.7%">+</button><button type="button" data-h="5" aria-pressed="false" aria-label="Узел 6" style="left:7.7%;top:55.6%">+</button></div><figcaption class="hot-cap" id="hotCap" aria-live="polite"></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <div class="marquee" aria-label="Марки, с которыми работаем"><div class="mq" id="mq"><span>HOWO</span><span>SITRAK</span><span>Shacman</span><span>Dongfeng</span><span>FAW</span><span>Foton</span><span>JAC</span><span>SANY</span><span>XCMG</span><span>LiuGong</span><span>Shantui</span><span>Zoomlion</span><span>Weichai</span><span>Yuchai</span></div></div>
+
+  <section class="band">
+    <div class="wrap">
+      <div class="head"><p class="eyebrow">Группы работ</p><h2>Что делаем</h2></div>
+      <div class="rail r3" data-rail>
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-engine"/></svg></span><h3>Двигатель и электронные блоки</h3><p class="muted">Диагностика двигателя и блоков управления.</p></div>
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-cable"/></svg></span><h3>Питание, проводка, связь</h3><p class="muted">Неисправности питания, проводки, разъёмов и связи между блоками.</p></div>
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-alert"/></svg></span><h3>Ошибки и тесты</h3><p class="muted">Чтение ошибок, анализ текущих данных, тесты исполнительных механизмов.</p></div>
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-code"/></svg></span><h3>Программирование</h3><p class="muted">Адаптации и калибровки поддерживаемых блоков.</p></div>
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-gear"/></svg></span><h3>Двигатель, коробка, приборы, выхлоп</h3><p class="muted">Блоки двигателя, трансмиссии, приборной панели и системы очистки выхлопа.</p></div>
+        <div class="card"><div class="ch"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-battery"/></svg></span><span class="pill">24 вольта</span></div><h3>Запуск и выездная помощь</h3><p class="muted">Запускаем технику с севшими батареями прямо на объекте.</p></div>
+      </div>
+      <div class="rail-hint" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <section class="band alt">
+    <div class="wrap split">
+      <div class="stack">
+        <p class="eyebrow">Оборудование</p>
+        <h2>Сканер видит больше, чем ошибки</h2>
+        <p>Оборудование позволяет не только читать ошибки, но и видеть рабочие параметры, проверять исполнительные механизмы и выполнять сервисные настройки. Доступные операции зависят от модели техники и установленного блока.</p>
+        <ul class="ilist">
+          <li><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-gauge"/></svg></span><span><b>Холостой ход</b><small>настройка оборотов</small></span></li>
+          <li><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-pedal"/></svg></span><span><b>Педаль газа</b><small>адаптация</small></span></li>
+          <li><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-fan"/></svg></span><span><b>Вентилятор охлаждения</b><small>проверка и управление</small></span></li>
+          <li><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-gear"/></svg></span><span><b>Отбор мощности</b><small>настройка работы</small></span></li>
+          <li><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-engine"/></svg></span><span><b>Двигатель</b><small>сервисные параметры</small></span></li>
+        </ul>
+        <p class="muted" style="font-size:.9rem">Это примеры для поддерживаемых систем.</p>
+        <p class="note"><mark class="a" title="Нужны реальные фото и кейсы от заказчика">Сюда встанут фото оборудования, техники и 3–5 примеров решённых задач.</mark></p>
+      </div>
+      <div class="stack">
+        <p class="eyebrow">Поддержка из Китая</p>
+        <h2>Специалист на связи</h2>
+        <ol class="steps" style="grid-template-columns:minmax(0,1fr)">
+          <li><h3>Подключаем оборудование</h3><p class="muted">К технике на месте, на объекте или в парке.</p></li>
+          <li><h3>Подключаем специалиста</h3><p class="muted">При необходимости он удалённо участвует в диагностике и программных работах.</p></li>
+          <li><h3>Берём общение на себя</h3><p class="muted">Переводим, организуем работы, объясняем результат.</p></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section class="band dark">
+    <div class="wrap">
+      <div class="head"><p class="eyebrow">Марки</p><h2>С какой техникой работаем</h2></div>
+      <div class="brands">
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-truck"/></svg></span><h3>Грузовики</h3><div class="chips"><span>HOWO / Sinotruk</span><span>SITRAK</span><span>Shacman</span><span>Dongfeng</span><span>FAW</span><span>Foton</span><span>JAC</span></div></div>
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-digger"/></svg></span><h3>Спецтехника</h3><div class="chips"><span>SANY</span><span>XCMG</span><span>LiuGong</span><span>Shantui</span><span>Zoomlion</span><span>Lovol</span><span>Sunward</span></div></div>
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-engine"/></svg></span><h3>Двигатели</h3><div class="chips"><span>Weichai</span><span>Yuchai</span><span>Yunnei</span><span>Xichai</span><span>SDEC</span></div></div>
+      </div>
+      <p class="muted" style="margin-top:20px">И другие поддерживаемые модели. Пришлите марку, модель и данные двигателя, скажем, работаем ли с вашей техникой.</p>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap split">
+      <div class="stack">
+        <p class="eyebrow">Для автопарков</p>
+        <h2>Работаем с организациями</h2>
+        <p class="muted"><mark class="a" title="Условия для юрлиц нужно подтвердить">Договор, безналичный расчёт, выезд на территорию парка или объекта.</mark></p>
+        <ul class="checks">
+          <li>одна точка контакта для всего парка;</li>
+          <li>результаты диагностики по каждой единице техники;</li>
+          <li>документы об оплате согласно форме работы.</li>
+        </ul>
+      </div>
+      <div data-form="china"></div>
+    </div>
+  </section>
+</article>
+
+<!-- ================= БЕЗ МОЧЕВИНЫ ================= -->
+<article data-page="bez-mocheviny" hidden>
+  <section class="hero">
+    <div class="wrap">
+      <div class="stack" style="gap:20px">
+        <p class="crumbs"><a href="#start">Главная</a> / <a href="#kitajskaya-tehnika">Китайская техника</a> / Без мочевины</p>
+        <h1>Перевод китайской техники на работу <span class="hl">без мочевины</span></h1>
+        <p class="lead">Подбираем решение по модели двигателя и установленным электронным блокам. Состав работ и стоимость определяем после проверки данных техники. Работаем только с китайскими марками: HOWO, SITRAK, Shacman, Dongfeng, FAW, SANY, XCMG, двигатели Weichai и Yuchai.</p>
+        <div class="btn-row">
+          <button class="btn btn-main" type="button" data-sheet data-type="urea">Отправить данные на оценку</button>
+        </div>
+        <div class="facts">
+          <div><svg class="i" aria-hidden="true"><use href="#i-drop"/></svg><b>Мочевина</b><span>диагностика системы</span></div>
+          <div><svg class="i" aria-hidden="true"><use href="#i-chip"/></svg><b>Настройка</b><span>двигатель и связанные блоки</span></div>
+          <div><svg class="i" aria-hidden="true"><use href="#i-filter"/></svg><b>Сажевый фильтр</b><span>решаем отдельно</span></div>
+        </div>
+      </div>
+      <figure class="shot">
+        <svg viewBox="0 0 640 396" role="img" aria-label="Схема: двигатель, сажевый фильтр, дозатор мочевины, катализатор, бак мочевины, насос и блок управления">
+          <defs>
+            <linearGradient id="u-metal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8E99A4"/><stop offset=".3" stop-color="#E4E9ED"/><stop offset="1" stop-color="#5B6670"/></linearGradient>
+            <linearGradient id="u-dark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#59646F"/><stop offset=".3" stop-color="#96A2AE"/><stop offset="1" stop-color="#2F373F"/></linearGradient>
+            <linearGradient id="u-eng" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#525D68"/><stop offset="1" stop-color="#252C33"/></linearGradient>
+            <linearGradient id="u-tank" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F1F6FA"/><stop offset="1" stop-color="#C4D3E0"/></linearGradient>
+          </defs>
+          <g font-family="Golos Text,sans-serif" font-size="19" font-weight="600" text-anchor="middle" fill="#C9D2DA">
+            <text x="86" y="198">Двигатель</text><text x="275" y="188">Сажевый фильтр</text>
+            <g fill="#8CC4FF"><text x="382" y="92" font-size="16">Дозатор</text><text x="491" y="196">Катализатор</text><text x="122" y="382">Бак мочевины</text><text x="331" y="362">Насос</text></g>
+          </g>
+          <rect x="36" y="50" width="100" height="18" rx="6" fill="#6C7884"/>
+          <rect x="24" y="64" width="124" height="106" rx="10" fill="url(#u-eng)" stroke="#11151A"/>
+          <path d="M40 88h92M40 106h92M40 124h92" stroke="#1B2026" stroke-width="3"/>
+          <circle cx="50" cy="148" r="13" fill="#1B2026" stroke="#808D9A" stroke-width="3"/><circle cx="50" cy="148" r="3" fill="#808D9A"/>
+          <rect x="148" y="104" width="66" height="24" fill="url(#u-metal)"/>
+          <rect x="340" y="104" width="84" height="24" fill="url(#u-metal)"/>
+          <rect x="560" y="104" width="52" height="24" fill="url(#u-metal)"/>
+          <rect x="208" y="74" width="134" height="84" rx="24" fill="url(#u-dark)" stroke="#1B2026"/>
+          <rect x="232" y="75" width="7" height="82" fill="#2B3239" opacity=".6"/><rect x="311" y="75" width="7" height="82" fill="#2B3239" opacity=".6"/>
+          <rect x="420" y="66" width="142" height="100" rx="26" fill="url(#u-metal)" stroke="#1B2026"/>
+          <rect x="446" y="67" width="7" height="98" fill="#5B6670" opacity=".55"/><rect x="530" y="67" width="7" height="98" fill="#5B6670" opacity=".55"/>
+          <g fill="#C9D2DA" opacity=".35"><circle cx="621" cy="112" r="7"/><circle cx="631" cy="99" r="5"/></g>
+          <rect x="372" y="124" width="18" height="24" rx="4" fill="#2D7DD2" stroke="#12395F"/>
+          <path d="M376 121l-5-9M381 120v-10M386 121l5-9" stroke="#2D7DD2" stroke-width="2" stroke-linecap="round" stroke-dasharray="2 3"/>
+          <rect x="578" y="126" width="9" height="16" rx="2" fill="#1B2026" stroke="#FFC21A"/>
+          <rect x="40" y="252" width="164" height="100" rx="16" fill="url(#u-tank)" stroke="#8FA3B5"/>
+          <path d="M41 302h162v35a14 14 0 0 1-14 14H55a14 14 0 0 1-14-14z" fill="#4DA3FF" opacity=".5"/>
+          <rect x="66" y="240" width="36" height="16" rx="5" fill="#2D7DD2"/>
+          <rect x="292" y="270" width="78" height="62" rx="10" fill="#27313B" stroke="#5B6670" stroke-width="1.500"/>
+          <circle cx="331" cy="301" r="16" fill="#12161B" stroke="#2D7DD2" stroke-width="3"/><path d="M331 291v20M321 301h20" stroke="#2D7DD2" stroke-width="2"/>
+          <path d="M204 301H292" stroke="#4DA3FF" stroke-width="5"/>
+          <path d="M331 270V236q0-14 14-14h22q14 0 14-14V148" fill="none" stroke="#4DA3FF" stroke-width="5" stroke-linecap="round"/>
+          <rect x="462" y="262" width="150" height="78" rx="10" fill="#1A2530" stroke="#FFC21A" stroke-width="1.500"/>
+          <g font-family="Golos Text,sans-serif" font-size="19" font-weight="600" text-anchor="middle" fill="#EEF2F5"><text x="537" y="296">Блок</text><text x="537" y="320">управления</text></g>
+          <path d="M462 301H370M582 262V142" fill="none" stroke="#FFC21A" stroke-width="2" stroke-dasharray="5 5"/>
+        </svg>
+        <div class="legend"><span><i style="background:#4DA3FF"></i>система мочевины</span><span><i style="background:#96A2AE"></i>сажевый фильтр, отдельный узел</span><span><i style="background:#FFC21A"></i>электроника</span></div>
+      </figure>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap">
+      <div class="head"><p class="eyebrow">Состав работ</p><h2>Что входит в услугу</h2></div>
+      <ul class="checks c2">
+        <li>диагностика системы SCR / AdBlue</li>
+        <li>программная настройка двигателя для работы без мочевины</li>
+        <li>настройка связанных блоков на изменённую конфигурацию</li>
+        <li>работы с насосом и системой дозирования мочевины</li>
+        <li>работы с сажевым фильтром DPF, включая удаление, если оно входит в согласованное решение</li>
+        <li>проверка работы техники после изменений</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="band dark">
+    <div class="wrap split">
+      <div class="stack">
+        <p class="eyebrow">Важно</p>
+        <h2>Мочевина и сажевый фильтр – это разные системы</h2>
+        <p class="muted">SCR с мочевиной снижает выбросы оксидов азота. Сажевый фильтр DPF задерживает сажу. Работа без мочевины не означает автоматически работы с DPF: решение по фильтру принимаем отдельно, после проверки его состояния.</p>
+      </div>
+      <div class="stack" style="gap:12px">
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-drop"/></svg></span><h3>Система мочевины (SCR, AdBlue)</h3><p class="muted">Бак, насос, дозатор, катализатор и датчики.</p></div>
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-filter"/></svg></span><h3>Сажевый фильтр (DPF)</h3><p class="muted">Отдельный узел и отдельное решение.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap split">
+      <div class="stack">
+        <p class="eyebrow">Что прислать для оценки</p>
+        <h2>Ответим, подходит ли решение для вашей техники</h2>
+        <div class="todo" id="todo">
+          <div class="todo-bar"><i></i></div><p class="todo-st" aria-live="polite"></p>
+          <label for="td0"><input type="checkbox" id="td0"><span>Марка, модель и год техники</span></label>
+          <label for="td1"><input type="checkbox" id="td1"><span>Модель двигателя и данные с шильдика</span></label>
+          <label for="td2"><input type="checkbox" id="td2"><span>Фото шильдиков двигателя и блока управления</span></label>
+          <label for="td3"><input type="checkbox" id="td3"><span>Коды ошибок или фото панели</span></label>
+          <label for="td4"><input type="checkbox" id="td4"><span>Описание: что происходит и когда началось</span></label>
+        </div>
+        <p class="muted"><mark class="a" title="Срок ответа не определён">Обычно отвечаем в течение рабочего дня.</mark></p>
+      </div>
+      <div data-form="urea"></div>
+    </div>
+  </section>
+</article>
+
+<!-- ================= ЦЕНЫ ================= -->
+<article data-page="ceny" hidden>
+  <section class="hero">
+    <div class="wrap">
+      <div class="stack" style="gap:20px">
+        <p class="crumbs"><a href="#start">Главная</a> / Цены</p>
+        <h1>Цены и условия</h1>
+        <p class="lead">Одно правило оплаты для всех выездов. Стоимость работ сверх запуска называем до начала.</p>
+      </div>
+    </div>
+  </section>
+  <section class="band">
+    <div class="wrap stack" style="gap:32px">
+      <div class="rule">
+        <p class="eyebrow">Правило оплаты</p>
+        <p><mark class="a" title="Бриф требует одно правило, но не задаёт его. Это предложение">Цена запуска уже включает выезд по Минску. Если запустить не удалось, вы платите только выезд. Диагностику и ремонт начинаем только после согласования стоимости.</mark></p>
+      </div>
+      <div class="chips-f" role="group" aria-label="Раздел цен" id="priceF"><button type="button" data-f="all" aria-pressed="true">Все</button><button type="button" data-f="0" aria-pressed="false">Запуск</button><button type="button" data-f="1" aria-pressed="false">Автоэлектрик</button><button type="button" data-f="2" aria-pressed="false">На дороге</button><button type="button" data-f="3" aria-pressed="false">Китайская техника</button></div>
+      <div class="prices" id="prices">
+        <div class="grp"><svg class="i" aria-hidden="true"><use href="#i-bolt"/></svg>Запуск</div>
+        <div class="row"><b>Легковой автомобиль, 12 В</b><span class="p"><mark class="a" title="Цена не определена">XX BYN</mark></span><small>выезд по Минску, замер аккумулятора, запуск, проверка зарядки</small></div>
+        <div class="row"><b>Грузовик или спецтехника, 24 В</b><span class="p"><mark class="a" title="Цена не определена">XX BYN</mark></span><small>выезд по Минску, запуск, проверка зарядки</small></div>
+        <div class="row"><b>Гибрид или электромобиль</b><span class="p"><mark class="a" title="Цена не определена">XX BYN</mark></span><small>для поддерживаемых моделей</small></div>
+        <div class="grp"><svg class="i" aria-hidden="true"><use href="#i-diag"/></svg>Автоэлектрик</div>
+        <div class="row"><b>Выездная диагностика</b><span class="p"><mark class="a" title="Цена не определена">XX BYN</mark></span><small>чтение ошибок, замеры, проверка аккумулятора, стартера, генератора</small></div>
+        <div class="row"><b>Поиск утечки тока</b><span class="p"><mark class="a" title="Цена не определена">от XX BYN</mark></span><small>зависит от количества цепей</small></div>
+        <div class="row"><b>Мелкий ремонт на месте</b><span class="p">по согласованию</span><small>называем цену после проверки</small></div>
+        <div class="grp"><svg class="i" aria-hidden="true"><use href="#i-fuel"/></svg>Помощь на дороге</div>
+        <div class="row"><b>Замена аккумулятора</b><span class="p"><mark class="a" title="Цена не определена">XX BYN + батарея</mark></span><small>доставка, установка, утилизация старой батареи</small></div>
+        <div class="row"><b>Подвоз топлива</b><span class="p"><mark class="a" title="Цена не определена">XX BYN + топливо</mark></span><small>бензин или дизель</small></div>
+        <div class="row"><b>Замена колеса на запасное</b><span class="p"><mark class="a" title="Цена не определена">XX BYN</mark></span><small>при исправной запаске</small></div>
+        <div class="row"><b>Выезд за МКАД</b><span class="p"><mark class="a" title="Цена не определена">+X BYN/км</mark></span><small>по Минскому району</small></div>
+        <div class="grp"><svg class="i" aria-hidden="true"><use href="#i-truck"/></svg>Китайская техника</div>
+        <div class="row"><b>Диагностика, программирование, без мочевины</b><span class="p">после оценки</span><small>стоимость зависит от двигателя и блоков</small></div>
+      </div>
+      <div class="terms">
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-card"/></svg></span><h3>Оплата</h3><p class="muted"><mark class="a" title="Способы оплаты не указаны">Наличные, карта, ЕРИП, безнал для организаций.</mark></p></div>
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-doc"/></svg></span><h3>Документы</h3><p class="muted">Документ об оплате выдаём согласно форме работы.</p></div>
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg></span><h3>Гарантия</h3><p class="muted"><mark class="a" title="Условия гарантии не определены">На работы и установленные детали, срок указываем в документе.</mark></p></div>
+        <div class="card"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-moon"/></svg></span><h3>Ночью и в праздники</h3><p class="muted"><mark class="a" title="Часы и ночной тариф не определены">Уточняйте по телефону.</mark></p></div>
+      </div>
+    </div>
+  </section>
+</article>
+
+<!-- ================= КОНТАКТЫ ================= -->
+<article data-page="kontakty" hidden>
+  <section class="hero">
+    <div class="wrap">
+      <div class="stack" style="gap:20px">
+        <p class="crumbs"><a href="#start">Главная</a> / Контакты</p>
+        <h1>Контакты и зона выезда</h1>
+        <a class="mono" href="tel:+375290000000" style="font-size:clamp(1.6rem,6vw,2.4rem);font-weight:700;text-decoration:none;color:#fff"><mark class="a" title="Номер-заглушка">+375 29 000-00-00</mark></a>
+        <p class="lead"><mark class="a" title="Часы и мессенджеры не указаны">Ежедневно 7:00–23:00 · Viber · Telegram</mark></p>
+        <div class="btn-row">
+          <a class="btn btn-main" href="tel:+375290000000">Позвонить</a>
+          <a class="btn btn-ghost" href="https://t.me/" target="_blank" rel="noopener">Написать в Telegram</a>
+        </div>
+      </div>
+      <div class="geo-map">
+        <svg viewBox="0 0 420 360" role="img" aria-label="Схема зоны выезда: Минск в пределах МКАД и населённые пункты Минского района">
+          <rect width="420" height="360" rx="14" fill="#0F171E"/>
+          <path d="M210 22C290 18 372 70 388 150C402 226 352 318 262 338C176 356 70 318 38 232C10 150 74 30 210 22Z" fill="#16222D" stroke="#3A4A58" stroke-dasharray="5 6"/>
+          <g stroke="#3F4F5E" stroke-width="2.400" fill="none" stroke-linecap="round"><path d="M210 180L352 62M210 180L246 12M210 180L62 48M210 180L14 196M210 180L66 330M210 180L196 352M210 180L300 346M210 180L408 252"/></g>
+          <path d="M70 58C92 84 118 108 150 138S196 166 226 196S270 240 300 266S340 300 352 322" fill="none" stroke="#2D7DD2" stroke-width="3" stroke-linecap="round" opacity=".75"/>
+          <path d="M210 96C262 94 304 132 304 182C304 232 262 268 208 266C156 264 116 228 118 178C120 130 160 98 210 96Z" fill="#FFC21A" fill-opacity=".2" stroke="#FFC21A" stroke-width="3"/>
+          
+          <g font-family="Golos Text,sans-serif" paint-order="stroke" stroke="#0F171E" stroke-width="3.500" stroke-linejoin="round">
+            <text x="210" y="178" text-anchor="middle" font-family="Unbounded,sans-serif" font-weight="700" font-size="19" fill="#EEF2F5" stroke="none">Минск</text>
+            <text x="210" y="196" text-anchor="middle" font-size="11" fill="#D6C27A" stroke="none">внутри МКАД</text>
+            <g font-size="10" fill="#7F8E9B"><text x="356" y="58">на Москву</text><text x="254" y="16">на Витебск</text><text x="56" y="40" text-anchor="middle">на Молодечно</text><text x="14" y="188">на Гродно</text><text x="58" y="346" text-anchor="middle">на Брест</text><text x="190" y="354" text-anchor="end">на Слуцк</text><text x="308" y="352">на Гомель</text><text x="406" y="240" text-anchor="end">на Могилёв</text></g>
+            <g font-size="12.500" font-weight="600" fill="#EEF2F5"><text x="260" y="78">Боровляны</text><text x="328" y="145">Колодищи</text><text x="114" y="130" text-anchor="end">Ждановичи</text><text x="90" y="80">Заславль</text><text x="228" y="292">Сеница</text><text x="254" y="318" text-anchor="end">Мачулищи</text></g>
+          </g>
+          <g fill="#FFC21A" stroke="#0F171E" stroke-width="1.500"><circle cx="250" cy="74" r="4.500"/><circle cx="318" cy="141" r="4.500"/><circle cx="124" cy="112" r="4.500"/><circle cx="80" cy="66" r="4.500"/><circle cx="219" cy="288" r="4.500"/><circle cx="264" cy="312" r="4.500"/></g>
+          <text x="14" y="20" font-family="JetBrains Mono,monospace" font-size="9.500" fill="#5F6C78">схема, не в масштабе</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap stack" style="gap:28px">
+      <div class="zones">
+        <div class="card"><span class="zone z1">Основная зона</span><h3>Минск</h3><div class="districts"><span>Заводской</span><span>Фрунзенский</span><span>Московский</span><span>Первомайский</span><span>Ленинский</span><span>Партизанский</span><span>Советский</span><span>Центральный</span><span>Октябрьский</span><span>Уручье</span><span>Шабаны</span><span>Малиновка</span></div></div>
+        <div class="card"><span class="zone z1">Основная зона</span><h3>Минский район</h3><div class="districts"><span>Боровляны</span><span>Колодищи</span><span>Ждановичи</span><span>Сеница</span><span>Мачулищи</span><span>Заславль</span><span>Лесной</span></div></div>
+        <div class="card"><span class="zone z2"><mark class="a" title="В брифе только Минск и Минский район; спрос в Wordstat есть">По договорённости</mark></span><h3>Минская область</h3><p class="muted">Борисов, Жодино, Смолевичи, Молодечно, Дзержинск, Фаниполь. Для грузовиков и спецтехники.</p></div>
+      </div>
+      <div class="split">
+        <div class="stack">
+          <p class="eyebrow">Реквизиты</p>
+          <p class="muted"><mark class="a" title="Реквизиты не указаны">ИП / ООО «…», УНП …, юридический адрес …</mark></p>
+        </div>
+        <div data-form="start"></div>
+      </div>
+    </div>
+  </section>
+</article>
+</main>
+
+<footer class="foot">
+  <div class="wrap grid">
+    <div>
+      <b><mark class="a" title="Название не указано">Выезд 12/24</mark></b>
+      <p>Выездная помощь автомобилям, грузовикам и спецтехнике в Минске и Минском районе.</p>
+      <a class="phone" href="tel:+375290000000" style="margin-top:12px"><mark class="a" title="Номер-заглушка">+375 29 000-00-00</mark></a>
+    </div>
+    <div><b>Услуги</b><a href="#start">Прикурить автомобиль</a><a href="#avtoelektrik">Автоэлектрик с выездом</a><a href="#kitajskaya-tehnika">Китайские грузовики</a><a href="#bez-mocheviny">Работа без мочевины</a></div>
+    <div><b>Информация</b><a href="#ceny">Цены и условия</a><a href="#kontakty">Контакты и зона выезда</a></div>
+  </div>
+  <div class="wrap bottom">
+    <span>Черновик сайта · ноябрь 2026</span>
+    <button class="toggle-a" id="toggleA" type="button" aria-pressed="false">Показать допущения</button>
+  </div>
+</footer>
+
+<div class="actionbar">
+  <a class="btn btn-main" href="tel:+375290000000">
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2a1 1 0 011-.25 11.4 11.4 0 003.6.57 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.45.57 3.57a1 1 0 01-.25 1z" fill="currentColor"/></svg>
+    Позвонить
+  </a>
+  <a class="btn msg" href="https://t.me/" target="_blank" rel="noopener" aria-label="Написать в Telegram">
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.5 4.2L2.9 11.4c-1.1.4-1.1 1.2-.2 1.5l4.6 1.4 1.8 5.5c.2.6.4.8.9.8.4 0 .6-.2.9-.4l2.2-2.1 4.6 3.4c.8.5 1.4.2 1.6-.8l3-14.3c.3-1.3-.5-1.8-1.3-1.5zM8.7 13.9l9.6-6.1c.5-.3.9-.1.5.2l-8 7.2-.3 3.3-1.8-4.6z" fill="currentColor"/></svg>
+  </a>
+  <button class="btn btn-ghost" type="button" data-sheet>Заявка</button>
+</div>
+
+<div class="sheet-bg" id="sheetBg"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Заявка">
+  <div class="grab"></div>
+  <button class="sheet-close" id="sheetClose" type="button" aria-label="Закрыть">×</button>
+  <div data-form="sheet"></div>
+</div>
+
+<script>
+(function(){
+  var $=function(s,r){return (r||document).querySelector(s)}, $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+  var reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---------- routing ---------- */
+  var pages=["start","avtoelektrik","kitajskaya-tehnika","bez-mocheviny","ceny","kontakty"];
+  function route(){
+    var h=(location.hash||"").slice(1);
+    if(pages.indexOf(h)<0) h="start";
+    $$("main > article").forEach(function(a){a.hidden=a.dataset.page!==h});
+    $$("nav a").forEach(function(a){ if(a.getAttribute("href")==="#"+h) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
+    closeMenu(); window.scrollTo(0,0); railsInit();
+  }
+  window.addEventListener("hashchange",route);
+
+  /* ---------- menu ---------- */
+  var menu=$("#menu"), burger=$("#burger");
+  function openMenu(){menu.classList.add("open");menu.setAttribute("aria-hidden","false");burger.setAttribute("aria-expanded","true");document.body.style.overflow="hidden"}
+  function closeMenu(){menu.classList.remove("open");menu.setAttribute("aria-hidden","true");burger.setAttribute("aria-expanded","false");if(!document.body.classList.contains("sheet-open"))document.body.style.overflow=""}
+  burger.addEventListener("click",function(){menu.classList.contains("open")?closeMenu():openMenu()});
+  $("#menuClose").addEventListener("click",closeMenu);
+  $$("#menu nav a").forEach(function(a){a.addEventListener("click",closeMenu)});
+
+  /* ---------- open status (assumed hours 7–23, Minsk UTC+3) ---------- */
+  (function(){
+    var h=(new Date().getUTCHours()+3)%24, open=h>=7&&h<23, s=$("#status");
+    s.classList.toggle("off",!open); $("span",s).textContent=open?"Работаем сейчас":"Откроемся в 7:00";
+  })();
+
+  /* ---------- forms ---------- */
+  var types={start:"Легковой",diag:"Легковой",china:"Грузовик 24 В",urea:"Грузовик 24 В",sheet:"Легковой"};
+  function formHTML(kind,id){
+    var title={start:"Вызвать на запуск",diag:"Вызвать автоэлектрика",china:"Описать задачу",urea:"Отправить на оценку",sheet:"Заявка"}[kind];
+    var sub={start:"Перезвоним за пару минут и уточним адрес.",diag:"Опишите симптомы, перезвоним и назовём стоимость диагностики.",china:"Марка, модель и что происходит. Ответим, работаем ли с вашей техникой.",urea:"Пришлите данные техники, назовём состав работ и стоимость.",sheet:"Перезвоним за пару минут."}[kind];
+    var tech = (kind==="china"||kind==="urea")
+      ? '<label for="'+id+'-m">Техника и двигатель<input id="'+id+'-m" placeholder="Например, Shacman X3000, Weichai WP12" autocomplete="off"></label>'
+        +'<label for="'+id+'-d">Ошибки и описание<textarea id="'+id+'-d" placeholder="Коды ошибок, симптомы, что уже проверяли"></textarea></label>'
+        +(kind==="urea"?'<label for="'+id+'-f">Фото шильдиков и панели<input id="'+id+'-f" type="file" multiple accept="image/*" style="padding-top:14px"></label>':'')
+      : '<div><span style="font-size:.85rem;font-weight:700;display:block;margin-bottom:6px">Что запускаем</span><div class="seg" role="group" aria-label="Тип техники">'
+        +['Легковой','Грузовик 24 В','Гибрид / EV'].map(function(t){return '<button type="button" aria-pressed="'+(t===types[kind]?'true':'false')+'">'+t+'</button>'}).join('')+'</div></div>'
+        +'<label for="'+id+'-a">Где находитесь<input id="'+id+'-a" placeholder="Улица, район или ориентир" autocomplete="street-address"></label>';
+    return '<form class="req" novalidate data-kind="'+kind+'">'
+      +'<div class="stack" style="gap:4px"><h3>'+title+'</h3><p class="muted" style="font-size:.92rem">'+sub+'</p></div>'
+      +'<label for="'+id+'-p">Телефон<input id="'+id+'-p" type="tel" inputmode="tel" autocomplete="tel" placeholder="+375 (29) 000-00-00" value="+375 "></label>'
+      +tech
+      +'<p class="err" hidden>Проверьте номер: нужен код оператора и 7 цифр.</p>'
+      +'<button class="btn btn-main" type="submit" style="width:100%">'+(kind==="urea"?"Отправить на оценку":"Жду звонка")+'</button>'
+      +'<p class="fine">Нажимая кнопку, вы соглашаетесь на обработку телефона для обратного звонка. <mark class="a" title="Текст согласия на обработку ПД нужно согласовать с юристом">Политика обработки данных.</mark></p>'
+      +'</form>';
+  }
+  var n=0;
+  $$("[data-form]").forEach(function(box){ box.innerHTML=formHTML(box.dataset.form,"f"+(n++)); });
+  document.body.classList.contains("show-a");
+
+  function maskPhone(v){
+    var d=v.replace(/\D/g,""); if(d.indexOf("375")!==0) d="375"+d.replace(/^80?/,"");
+    d=d.slice(0,12); var o="+375";
+    if(d.length>3) o+=" ("+d.slice(3,5); if(d.length>=5) o+=")";
+    if(d.length>5) o+=" "+d.slice(5,8); if(d.length>8) o+="-"+d.slice(8,10); if(d.length>10) o+="-"+d.slice(10,12);
+    return o;
+  }
+  document.addEventListener("input",function(e){
+    if(e.target.matches('form.req input[type="tel"]')){ e.target.value=maskPhone(e.target.value); e.target.removeAttribute("aria-invalid"); var er=$(".err",e.target.form); if(er) er.hidden=true; }
+  });
+  document.addEventListener("click",function(e){
+    var b=e.target.closest(".seg button"); if(!b) return;
+    $$("button",b.parentNode).forEach(function(x){x.setAttribute("aria-pressed",x===b?"true":"false")});
+  });
+  document.addEventListener("submit",function(e){
+    var f=e.target; if(!f.matches("form.req")) return; e.preventDefault();
+    var tel=$('input[type="tel"]',f), digits=tel.value.replace(/\D/g,"");
+    if(digits.length!==12){ tel.setAttribute("aria-invalid","true"); $(".err",f).hidden=false; tel.focus(); return; }
+    f.innerHTML='<div class="done"><span class="tick"><svg width="26" height="26" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><h3>Заявка принята</h3><p class="muted">Перезвоним на '+tel.value+'. В прототипе заявка никуда не отправляется.</p></div>';
+  });
+
+  /* ---------- bottom sheet ---------- */
+  var sheetBox=$('#sheet [data-form]');
+  function openSheet(type){
+    sheetBox.innerHTML=formHTML(type||"sheet","fs"+(n++));
+    document.body.classList.add("sheet-open"); document.body.style.overflow="hidden";
+    setTimeout(function(){var i=$('#sheet input[type="tel"]'); if(i&&window.innerWidth>=900) i.focus();},250);
+  }
+  function closeSheet(){document.body.classList.remove("sheet-open");document.body.style.overflow=""}
+  document.addEventListener("click",function(e){var t=e.target.closest("[data-sheet]"); if(t){e.preventDefault();closeMenu();openSheet(t.dataset.type);}});
+  $("#sheetBg").addEventListener("click",closeSheet); $("#sheetClose").addEventListener("click",closeSheet);
+  document.addEventListener("keydown",function(e){if(e.key==="Escape"){closeSheet();closeMenu();}});
+  // swipe down to close on phones
+  (function(){var y0=null,sh=$("#sheet");
+    sh.addEventListener("touchstart",function(e){ if(sh.scrollTop<=0) y0=e.touches[0].clientY; },{passive:true});
+    sh.addEventListener("touchmove",function(e){ if(y0===null) return; var dy=e.touches[0].clientY-y0; if(dy>0) sh.style.transform="translateY("+dy+"px)"; },{passive:true});
+    sh.addEventListener("touchend",function(e){ if(y0===null) return; var dy=e.changedTouches[0].clientY-y0; sh.style.transform=""; y0=null; if(dy>90) closeSheet(); });
+  })();
+
+  /* ---------- multimeter ---------- */
+  var states=[[12.6,"заряжен · запустится"],[12.35,"около 75% · в мороз на грани"],[12.1,"около половины · лучше подзарядить"],[0,"разряжен · может не запустить"]];
+  var bar=$("#mBar"); for(var i=0;i<20;i++) bar.appendChild(document.createElement("i"));
+  var cur=11.9, anim=null;
+  function fmt(v){return v.toFixed(1).replace(".",",")}
+  function paint(v,label){
+    $("#mVal").textContent=fmt(v);
+    var lvl=Math.max(0,Math.min(20,Math.round((v-11.6)/(14.4-11.6)*20)));
+    $$("i",bar).forEach(function(x,k){x.classList.toggle("on",k<lvl)});
+    if(label) $("#mState").textContent=label;
+    else for(var s=0;s<states.length;s++) if(v>=states[s][0]){$("#mState").textContent=states[s][1];break;}
+  }
+  function tween(to,ms,label,done){
+    cancelAnimationFrame(anim); var from=cur, t0=null;
+    if(reduce){cur=to;paint(to,label);done&&done();return;}
+    (function step(t){ if(!t0) t0=t; var k=Math.min(1,(t-t0)/ms), e=1-Math.pow(1-k,3); cur=from+(to-from)*e; paint(cur,label); if(k<1) anim=requestAnimationFrame(step); else done&&done(); })(performance.now());
+  }
+  $$(".meter-scale button").forEach(function(b){
+    b.addEventListener("click",function(){ $$(".meter-scale button").forEach(function(x){x.setAttribute("aria-pressed",x===b?"true":"false")}); tween(parseFloat(b.dataset.v),500); });
+  });
+  var jump=$("#jump");
+  jump.addEventListener("click",function(){
+    jump.disabled=true;
+    tween(9.8,350,"стартер крутит · просадка",function(){
+      tween(14.2,900,"двигатель запущен · генератор заряжает",function(){
+        setTimeout(function(){jump.disabled=false;},600);
+      });
+    });
+  });
+  paint(11.9);
+
+  /* ---------- symptom picker ---------- */
+  var S={
+    click:{tag:"Скорее всего: аккумулятор",h:"Щелчки без вращения стартера",p:"Типичный признак сильно разряженной батареи. Реже это окисленные клеммы, плохая масса или реле стартера.",l:["замеряем напряжение и смотрим клеммы","запускаем с пускового устройства","проверяем зарядку после запуска"],t:"start"},
+    slow:{tag:"Скорее всего: аккумулятор",h:"Стартер крутит медленно",p:"Батарея не отдаёт ток, особенно в мороз. Возможно, она подсела или уже изношена.",l:["замеряем напряжение под нагрузкой","запускаем и проверяем генератор","подскажем, нужна ли замена аккумулятора"],t:"start"},
+    dead:{tag:"Аккумулятор или контакт",h:"Панель не горит совсем",p:"Батарея разряжена в ноль или пропал контакт: клемма, масса, силовой предохранитель.",l:["проверяем клеммы и массу","запускаем от пускового устройства","ищем утечку, если аккумулятор садится за ночь"],t:"start"},
+    crank:{tag:"Скорее всего: не аккумулятор",h:"Крутит бодро, но не заводится",p:"Если стартер крутит нормально, батарея в порядке. Причина в топливе, зажигании, датчиках или иммобилайзере.",l:["читаем ошибки сканером","смотрим параметры датчиков","если не решить на месте, поможем с СТО"],t:"diag",cta:"Вызвать автоэлектрика"},
+    hybrid:{tag:"Вспомогательная батарея 12 В",h:"Гибрид или EV не включается",p:"У гибридов и электромобилей есть обычная 12-вольтовая батарея. Когда она садится, машина не переходит в режим готовности.",l:["уточняем модель по телефону","подключаемся к штатным точкам","проверяем систему после включения"],t:"start"}
+  };
+  function pick(k){
+    var d=S[k]; $$(".opt").forEach(function(o){o.setAttribute("aria-pressed",o.dataset.s===k?"true":"false")});
+    $("#verdict").innerHTML='<span class="tag">'+d.tag+'</span><h3>'+d.h+'</h3><p>'+d.p+'</p><ul>'+d.l.map(function(x){return '<li>'+x+'</li>'}).join('')+'</ul>'
+      +'<div class="btn-row"><a class="btn btn-main" href="tel:+375290000000">'+(d.cta||"Вызвать на запуск")+'</a><button class="btn btn-ghost" type="button" data-sheet data-type="'+d.t+'">Заявка</button></div>';
+  }
+  $$(".opt").forEach(function(o){o.addEventListener("click",function(){pick(o.dataset.s)})});
+  pick("click");
+
+  /* ---------- rails: dots ---------- */
+  function railsInit(){
+    $$("[data-rail]").forEach(function(r){
+      var hint=r.nextElementSibling; if(!hint||!hint.classList.contains("rail-hint")) return;
+      var kids=r.children.length; if(hint.childElementCount!==kids){hint.innerHTML="";for(var i=0;i<kids;i++)hint.appendChild(document.createElement("i"));}
+      function upd(){var w=r.children[0]?r.children[0].getBoundingClientRect().width+12:1; var k=Math.round(r.scrollLeft/w); $$("i",hint).forEach(function(x,j){x.classList.toggle("on",j===Math.min(k,kids-1))});}
+      if(!r._b){r.addEventListener("scroll",upd,{passive:true});r._b=1;} upd();
+    });
+  }
+
+
+  /* ---------- tabs ---------- */
+  $$("[data-tabs]").forEach(function(t){
+    function sel(k){ $$('[role="tab"]',t).forEach(function(b){b.setAttribute("aria-selected",b.dataset.tab===k?"true":"false")}); $$("[data-panel]",t).forEach(function(p){p.hidden=p.dataset.panel!==k}); }
+    $$('[role="tab"]',t).forEach(function(b){b.addEventListener("click",function(){sel(b.dataset.tab)})});
+    sel("car");
+  });
+
+  /* ---------- season chart ---------- */
+  (function(){
+    var D=[["окт","Октябрь 2025",340],["ноя","Ноябрь 2025",254],["дек","Декабрь 2025",224],["янв","Январь 2026",757],["фев","Февраль 2026",466],["мар","Март 2026",178],["апр","Апрель 2026",184],["май","Май 2026",166],["июн","Июнь 2026",119],["июл","Июль 2026",208],["авг","Август 2026",144],["сен","Сентябрь 2026",185]];
+    var MAX=800, bars=$("#seasonBars"), out=$("#seasonOut"); if(!bars) return;
+    var plot=bars.parentNode;
+    [0,200,400,600,800].forEach(function(v){var g=document.createElement("div");g.className="gl";g.style.bottom=(v/MAX*100)+"%";g.innerHTML="<span>"+v+"</span>";plot.insertBefore(g,bars);});
+    function show(i){ out.textContent=D[i][1]+": "+D[i][2]+" запросов"; $$(".bar",bars).forEach(function(b,k){b.classList.toggle("on",k===i)}); }
+    D.forEach(function(d,i){
+      var b=document.createElement("button"); b.type="button"; b.className="bar"+(d[2]>=300?" hi":""); b.style.setProperty("--h",(d[2]/MAX*100)+"%");
+      b.setAttribute("aria-label",d[1]+": "+d[2]+" запросов"); b.innerHTML="<i></i>"+(d[2]>=300?"<em>"+d[2]+"</em>":"");
+      ["pointerenter","focus","click"].forEach(function(ev){b.addEventListener(ev,function(){show(i)})});
+      bars.appendChild(b);
+      var x=document.createElement("span"); x.textContent=d[0]; $("#seasonX").appendChild(x);
+    });
+    $("#seasonT").innerHTML=D.map(function(d){return "<tr><td>"+d[1]+"</td><td>"+d[2]+"</td></tr>"}).join("");
+    show(3);
+  })();
+
+  /* ---------- dashboard lamps ---------- */
+  var L={
+    batt:{tag:"Красная лампа аккумулятора",h:"Генератор не заряжает",p:"На ходу машина едет на запасе батареи. Когда он закончится, двигатель заглохнет, поэтому далеко ехать не стоит.",l:["проверяем генератор и ремень","смотрим проводку и клеммы","говорим, можно ли доехать до СТО"]},
+    engine:{tag:"Жёлтый значок двигателя",h:"Блок управления записал ошибку",p:"Причин десятки: от датчика до пропусков зажигания. Без сканера не угадать.",l:["читаем код ошибки сканером","смотрим параметры датчиков","объясняем, срочно это или нет"]},
+    key:{tag:"Значок ключа или замка",h:"Машина не узнаёт ключ",p:"Иммобилайзер блокирует запуск. Иногда виновата батарейка в ключе или просевшее напряжение сети.",l:["проверяем питание и ошибки","пробуем запасной ключ","если нужна привязка ключа, подскажем специалиста"]},
+    coil:{tag:"Спираль на дизеле",h:"Свечи накала или их реле",p:"Зимой дизель с неисправными свечами заводится тяжело или не заводится вовсе.",l:["проверяем свечи и реле","смотрим напряжение при прокрутке","запускаем, если дело в аккумуляторе"]},
+    off:{tag:"Панель тёмная",h:"Нет питания",p:"Аккумулятор разряжен в ноль или пропал контакт на клемме, массе или предохранителе.",l:["проверяем клеммы и массу","запускаем с пускового устройства","ищем утечку тока"]}
+  };
+  function lampPick(k){
+    var d=L[k]; $$(".lamp").forEach(function(o){o.setAttribute("aria-pressed",o.dataset.l===k?"true":"false")});
+    $("#lampVerdict").innerHTML='<span class="tag">'+d.tag+'</span><h3>'+d.h+'</h3><p>'+d.p+'</p><ul>'+d.l.map(function(x){return '<li>'+x+'</li>'}).join('')+'</ul>'
+      +'<div class="btn-row"><a class="btn btn-main" href="tel:+375290000000">Вызвать автоэлектрика</a><button class="btn btn-ghost" type="button" data-sheet data-type="diag">Заявка</button></div>';
+  }
+  $$(".lamp").forEach(function(o){o.addEventListener("click",function(){lampPick(o.dataset.l)})});
+  if($("#lampVerdict")) lampPick("batt");
+
+  /* ---------- truck hotspots ---------- */
+  var H=[["Кабина","Приборная панель, блоки управления и связь между ними."],["Двигатель","Ошибки, текущие данные, тесты исполнительных механизмов, сервисные настройки."],["Выхлоп и мочевина","Система очистки выхлопа, насос и дозатор мочевины. Бак с синей крышкой стоит на раме."],["Аккумуляторы 24 вольта","Запуск техники с севшими батареями и проверка зарядки."],["Кузов и отбор мощности","Настройка работы отбора мощности для поддерживаемых блоков."],["Проводка","Питание, разъёмы, обрывы, освещение."]];
+  function hotPick(i){ $$("#hot button").forEach(function(b){b.setAttribute("aria-pressed",+b.dataset.h===i?"true":"false")}); $("#hotCap").innerHTML="<b>"+H[i][0]+"</b><span>"+H[i][1]+"</span>"; }
+  $$("#hot button").forEach(function(b){ b.setAttribute("aria-label",H[+b.dataset.h][0]); b.addEventListener("click",function(){hotPick(+b.dataset.h)}); });
+  if($("#hotCap")) hotPick(0);
+
+  /* ---------- marquee: duplicate for a seamless loop ---------- */
+  (function(){var m=$("#mq"); if(m&&!reduce) m.innerHTML+=m.innerHTML;})();
+
+  /* ---------- urea checklist ---------- */
+  (function(){var t=$("#todo"); if(!t) return; var boxes=$$("input",t);
+    function upd(){var n=boxes.filter(function(b){return b.checked}).length; $(".todo-bar i",t).style.width=(n/boxes.length*100)+"%";
+      $(".todo-st",t).textContent=n===boxes.length?"Всё собрано, можно отправлять":"Отметьте, что уже есть: "+n+" из "+boxes.length;
+      boxes.forEach(function(b){b.parentNode.classList.toggle("on",b.checked)});}
+    boxes.forEach(function(b){b.addEventListener("change",upd)}); upd();
+  })();
+
+  /* ---------- price filter ---------- */
+  (function(){var p=$("#prices"); if(!p) return; var g=-1;
+    Array.prototype.forEach.call(p.children,function(el){ if(el.classList.contains("grp")) g++; el.dataset.g=g; });
+    $$("#priceF button").forEach(function(b){b.addEventListener("click",function(){
+      $$("#priceF button").forEach(function(x){x.setAttribute("aria-pressed",x===b?"true":"false")});
+      Array.prototype.forEach.call(p.children,function(el){el.hidden=b.dataset.f!=="all"&&el.dataset.g!==b.dataset.f});
+    })});
+  })();
+
+  /* ---------- scanner demo ---------- */
+  (function(){
+    var g=$("#scanScr"); if(!g) return;
+    var i=0, v=11.9, pts=[283,282,284,281,288,276,287,283,284], xs=[112,150,180,205,225,240,262,300,368];
+    var F='font-family="Golos Text,sans-serif"', M='font-family="JetBrains Mono,monospace"';
+    function num(x){return x.toFixed(1).replace(".",",")}
+    function head(t){return '<text x="113" y="140" '+F+' font-size="12" font-weight="700" fill="#DCE8F2">'+t+'</text><text x="352" y="139" text-anchor="end" '+M+' font-size="10" fill="#8FA3B5">'+(i+1)+'/4</text>'}
+    function box(code,txt){return '<rect x="110" y="156" width="260" height="36" rx="6" fill="#3A1612" stroke="#D93A1F"/>'+(code?'<text x="120" y="179" '+M+' font-size="15" font-weight="700" fill="#FF8A73">'+code+'</text>':'')+'<text x="'+(code?182:120)+'" y="179" '+F+' font-size="12" '+(code?'':'font-weight="700" ')+'fill="#F3D6CF">'+txt+'</text>'}
+    function rows(r,y0){return r.map(function(x,k){var y=y0+k*24;return '<text x="112" y="'+y+'" '+F+' font-size="12" fill="#8FA3B5">'+x[0]+'</text><text x="368" y="'+y+'" text-anchor="end" '+M+' font-size="13" font-weight="700" fill="'+(x[2]||"#DCE8F2")+'">'+x[1]+'</text><path d="M110 '+(y+8)+'h260" stroke="#1D3445"/>'}).join("")}
+    function wave(){return '<polyline points="'+xs.map(function(x,k){return x+","+pts[k]}).join(" ")+'" fill="none" stroke="#4DA3FF" stroke-width="1.5"/>'}
+    var S=[
+      function(){return head("Диагностика · двигатель")+box("P0562","Низкое напряжение сети")+rows([["Аккумулятор",num(v)+" В","#FFC21A"],["Генератор","нет зарядки","#FF8A73"],["Обороты двигателя","0 об/мин"]],214)+wave()},
+      function(){return head("Ошибка 2 из 2")+box("P0622","Генератор: цепь возбуждения")+rows([["Статус","активная","#FF8A73"],["Напряжение на ходу",num(v+.2)+" В","#FFC21A"],["Норма на ходу","13,8–14,5 В"]],214)},
+      function(){return head("Текущие параметры")+rows([["Аккумулятор",num(v)+" В","#FFC21A"],["Ток зарядки","0 А","#FF8A73"],["Ток утечки на стоянке","0,03 А","#4CC27D"],["Температура двигателя","4 °C"]],170)+wave()},
+      function(){return head("Итог проверки")+box("","Генератор не заряжает аккумулятор")+rows([["Аккумулятор","разряжен, исправен","#FFC21A"],["Запуск","с пускового устройства","#4CC27D"],["Дальше","поможем с СТО"]],214)}
+    ];
+    function draw(){g.innerHTML=S[i]()}
+    $("#scanOk").addEventListener("click",function(){i=(i+1)%S.length;draw()});
+    $("#scanBack").addEventListener("click",function(){i=(i+S.length-1)%S.length;draw()});
+    $("#scanPad").addEventListener("click",function(){v=11.6+Math.round(Math.random()*5)/10;pts=pts.map(function(){return 277+Math.round(Math.random()*11)});i=2;draw()});
+    draw();
+  })();
+
+  /* ---------- booster demo ---------- */
+  (function(){
+    if(!$("#boost")) return; var mode=24, on=true;
+    function draw(){
+      $("#bVal").textContent=on?(mode===24?"24,1 В":"12,6 В"):"ВЫКЛ";
+      $("#bLbl").textContent=on?"ГОТОВ К ПУСКУ":"";
+      [12,24].forEach(function(m){var a=on&&mode===m; $("#b"+m+"r").setAttribute("fill",a?"url(#k-yel)":"#252D36"); $("#b"+m+"t").setAttribute("fill",a?"#121A22":"#8D99A5");});
+      $("#bLed").setAttribute("opacity",on?"1":".15");
+    }
+    $("#bBtn12").addEventListener("click",function(){mode=12;on=true;draw()});
+    $("#bBtn24").addEventListener("click",function(){mode=24;on=true;draw()});
+    $("#bBtnP").addEventListener("click",function(){on=!on;draw()});
+  })();
+
+  /* ---------- assumptions toggle ---------- */
+  var btn=$("#toggleA");
+  function setA(on){document.body.classList.toggle("show-a",on);btn.setAttribute("aria-pressed",on?"true":"false");btn.textContent=on?"Скрыть допущения":"Показать допущения";}
+  var saved=false; try{var v=localStorage.getItem("showA2"); if(v!==null) saved=v==="1";}catch(e){}
+  setA(saved);
+  btn.addEventListener("click",function(){var on=!document.body.classList.contains("show-a");setA(on);try{localStorage.setItem("showA2",on?"1":"0")}catch(e){}});
+
+  route();
+})();
+</script>
+</body></html>
